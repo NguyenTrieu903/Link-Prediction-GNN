@@ -1,11 +1,7 @@
-from math import e
-from scipy.sparse import data
-from sklearn import utils
 import random
 import numpy as np
-from model import LocalWLNet, WLNet, FWLNet, LocalFWLNet, Net_cora
+from model import LocalWLNet, WLNet, FWLNet, LocalFWLNet, train
 from datasets import load_dataset, dataset
-from impl import train
 import torch
 from torch.optim import Adam
 from ogb.linkproppred import Evaluator
@@ -84,7 +80,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--pattern', type=str, default="2fwl_l")
-    parser.add_argument('--dataset', type=str, default="USAir")
+    parser.add_argument('--raw_data', type=str, default="USAir")
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--path', type=str, default="opt/")
     parser.add_argument('--test', action="store_true")
