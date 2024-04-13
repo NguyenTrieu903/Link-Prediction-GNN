@@ -1,0 +1,5 @@
+torch: conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 -c pytorch
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.1+cpu.html
+pip install torch-geometric==2.3.1
+python 2WL_work.py
+

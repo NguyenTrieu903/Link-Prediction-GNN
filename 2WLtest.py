@@ -1,7 +1,9 @@
 import random
 import numpy as np
-from model import LocalWLNet, WLNet, FWLNet, LocalFWLNet, train
-from datasets import load_dataset, dataset
+from TwoWL.model.model import LocalWLNet, WLNet, FWLNet, LocalFWLNet
+from TwoWL.model import train
+# from datasets import load_dataset, dataset
+from TwoWL.operators.datasets import load_dataset, dataset
 import torch
 from torch.optim import Adam
 from ogb.linkproppred import Evaluator
@@ -35,7 +37,7 @@ def evaluate_hits(pos_pred, neg_pred, K):
 
 def testparam(device="cpu", dsname="Celegans"):  # mod_params=(32, 2, 1, 0.0), lr=3e-4
     device = torch.device(device)
-    bg = load_dataset(dsname, args.pattern)
+    bg = load_dataset(args.pattern)
     bg.to(device)
     bg.preprocess()
     bg.setPosDegreeFeature()
@@ -66,11 +68,12 @@ def testparam(device="cpu", dsname="Celegans"):  # mod_params=(32, 2, 1, 0.0), l
         elif args.pattern == '2fwl_l':
             mod = LocalFWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         opt = Adam(mod.parameters(), lr=lr)
-        return train.train_routine(args.dataset, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
+        return train.train_routine(args.raw_data, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
 
-    file_path = os.path.join("config", args.pattern, "{}.yaml".format(args.dataset))
+    file_path = os.path.join("TwoWL/config", args.pattern, "{}.yaml".format(args.raw_data))
     with open(file_path) as f:
         params = yaml.safe_load(f)
+        # print("params", params)
 
     valparam(**(params))
 
@@ -79,9 +82,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--pattern', type=str, default="2fwl_l")
-    parser.add_argument('--raw_data', type=str, default="USAir")
-    parser.add_argument('--device', type=int, default=0)
+    parser.add_argument('--pattern', type=str, default="2wl_l")
+    parser.add_argument('--raw_data', type=str, default="fb-pages-food")
+    parser.add_argument('--device', type=int, default=-1)
     parser.add_argument('--path', type=str, default="opt/")
     parser.add_argument('--test', action="store_true")
     parser.add_argument('--check', action="store_true")
@@ -94,4 +97,4 @@ if __name__ == "__main__":
     print(args.device)
     for i in range(10):
         set_seed(i + args.seed)
-        testparam(args.device, args.dataset)
+        testparam(args.device, "fb-pages-food")
