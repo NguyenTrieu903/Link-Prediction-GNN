@@ -4,7 +4,8 @@ import main
 TIMES = 10
 
 # handle write log file
-data_names = ["Delicious", "FW1", "FW2", "FW3", "Kohonen", "SciMet"]
+#data_names = ["Delicious", "FW1", "FW2", "FW3", "Kohonen", "SciMet"]
+data_names = ["fb-pages-food"]
 for data in data_names:
     auc_list = []
     for time in range(TIMES):

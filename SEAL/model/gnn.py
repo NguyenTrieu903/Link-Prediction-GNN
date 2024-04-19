@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-from sklearn import metrics
+import streamlit as st
 
 import constant
 from SEAL.utils import modelGCN
@@ -142,7 +142,7 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
     train_op, global_step, loss = model.train_op, model.global_step, model.loss
 
     train_data_size = X_train.shape[0]
-    print("train_data_size: ", train_data_size)
+    #print("train_data_size: ", train_data_size)
     with tf.Session() as sess:
         saver = tf.train.Saver()
         for epoch in range(epoch):
@@ -168,15 +168,17 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
                     if np.argmax(pre_y_value, 1) == Y_train[i]:
                         train_acc += 1
             train_acc = train_acc / train_data_size    
-            print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value))    
+            #print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value))    
         saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
 
-def predict(model, X_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
+def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test, debug=False):
+    #start_t = time.time()
     pre_y = model.pre_y
-    # Y_pl = model.Y_pl
+    Y_pl = model.Y_pl
     pos_score = model.pos_score
-
-    test_acc, prediction, scores = 0, [], []
+    test_data_size = X_test.shape[0]
+    test_acc, prediction, prediction_one, scores = 0, [], [], []
+    X_test_one, Y_test_one, A_tilde_test_one, D_inverse_test_one, nodes_size_list_test_one = X_test[0], Y_test[0], A_tilde_test[0], D_inverse_test[0], nodes_size_list_test[0]
 
     with tf.Session() as sess:
         # load model
@@ -207,12 +209,29 @@ def predict(model, X_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
         
         # saver = tf.train.Saver()
         # saver.restore(sess, '/home/nhattrieu-machine/Documents/SEAL-for-link-prediction-master/model-1000.meta')  # Đường dẫn tới tệp tin đã lưu
-        print("Model restored.")
-        feed_dict = {X_pl: X_test, is_train: 0, A_tilde_pl: A_tilde_test, D_inverse_pl: D_inverse_test,  node_size_pl: nodes_size_list_test,
+        #print("Model restored.")
+        st.write("Model restored.")
+        # Prediction first element of train and test
+        feed_dict = {X_pl: X_test_one, is_train: 0, A_tilde_pl: A_tilde_test_one, D_inverse_pl: D_inverse_test_one,  node_size_pl: nodes_size_list_test_one,
                          weight_1:weight_1_value, weight_2:weight_2_value, bias_1:bias_1_value, bias_2:bias_2_value, graph_weight_1:graph_weight_1_value, 
                          graph_weight_2: graph_weight_2_value, graph_weight_3 :graph_weight_3_value, graph_weight_4:graph_weight_4_value
                          }
-        pre_y_value, pos_score_value = sess.run([pre_y, pos_score], feed_dict=feed_dict)
-        print("pos_score_value: ", pos_score_value)
-        prediction.append(np.argmax(pos_score_value, 1))
-    return prediction
+        pre_y_value_one, pos_score_value_one = sess.run([pre_y, pos_score], feed_dict=feed_dict)
+        #print("pos_score_value: ", pos_score_value)
+        st.write("pos_score_value: ", pos_score_value_one)
+        prediction_one.append(np.argmax(pos_score_value_one, 1))
+
+
+        # Prediction all elements of train and test
+        for i in range(test_data_size):
+            feed_dict = {D_inverse_pl: D_inverse_test[i], A_tilde_pl: A_tilde_test[i],
+                             X_pl: X_test[i], Y_pl: Y_test[i], node_size_pl: nodes_size_list_test[i], is_train: 0}
+            pre_y_value, pos_score_value = sess.run([pre_y, pos_score], feed_dict=feed_dict)
+            prediction.append(np.argmax(pre_y_value, 1))
+            scores.append(pos_score_value[0][1])
+            if np.argmax(pre_y_value, 1) == Y_test[i]:
+                test_acc += 1
+        test_acc = test_acc / test_data_size
+            #saver.save(sess, os.path.join(MODEL_SAVE_PATH, data_name, MODEL_SAVE_NAME), global_step)
+        
+    return test_acc, prediction_one, prediction, scores, pos_score_value_one

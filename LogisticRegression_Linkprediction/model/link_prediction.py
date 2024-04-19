@@ -3,6 +3,7 @@ from LogisticRegression_Linkprediction.model.build_model import split_data
 from LogisticRegression_Linkprediction.data import dataset_preparation, understanding_data
 from LogisticRegression_Linkprediction.utils.feature_extraction import feature_extraction
 from LogisticRegression_Linkprediction.data.understanding_data import load_data
+from constant import *
 
 
 def link_prediction_with_logistic():
@@ -17,6 +18,17 @@ def link_prediction_with_logistic():
 
     xtrain, xtest, ytrain, ytest = split_data(data, x)
     build_model.logistic_regression(xtrain, xtest, ytrain, ytest)
+
+def read_the_results_logistic():
+    with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_logistic.txt', 'r') as f:
+        data = f.readlines()
+    for line in data:
+        line = line.strip()
+        if line:
+            auc, time = line.split()
+            auc_value = float(auc.split(":")[1])
+            annotations_auc_twowl = float(time.split(":")[1])
+    return auc_value
 
 
 

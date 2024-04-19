@@ -1,0 +1,3 @@
+AUC:0.8011   Time:118.3787   Test_acc:0.7268
+pos_score_value_one:[0.60588545 0.3941145 ]
+prediction_one:0

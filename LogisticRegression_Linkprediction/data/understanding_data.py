@@ -3,6 +3,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 import constant
+import streamlit as st
 
 
 def load_data():
@@ -32,9 +33,9 @@ def create_graph(fb_df):
     return G
 
 def plot_graph(G):
-  plt.figure(figsize=(10,10))
-  
-  pos = nx.random_layout(G, np.random.seed(23))
-  nx.draw(G, with_labels=False,  pos = pos, node_size = 40, alpha = 0.6, width = 0.7)
 
-  plt.show()
+    plt.figure(figsize=(12, 12))
+    pos = nx.random_layout(G, np.random.seed(23))
+    nx.draw(G, with_labels=False,  pos = pos, node_size = 60, alpha = 0.6, width = 0.7)
+    #plt.title("Graph Visualization")
+    st.pyplot(plt) 

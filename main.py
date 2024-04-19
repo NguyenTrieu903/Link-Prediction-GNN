@@ -1,4 +1,7 @@
+from LogisticRegression_Linkprediction.data.understanding_data import create_graph, plot_graph
 from LogisticRegression_Linkprediction.model.link_prediction import link_prediction_with_logistic
+from LogisticRegression_Linkprediction.data.understanding_data import *
+# from SEAL.config.data import load_data
 from SEAL.operators.seal_link_predict import execute
 from TwoWL import TwoWL_work
 import warnings

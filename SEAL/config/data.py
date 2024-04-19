@@ -121,7 +121,7 @@ def create_input_for_gnn_fly(graphs_adj, labels, vertex_tags, node_size_list, su
             X.append(np.divide(degree_total, np.sum(degree_total)).reshape(-1, 1))
         initial_feature_channels = 1
     X = np.array(X)
-    print(X)
+    #print(X)
     # doan code xay dung cac embedding features cho cac dinh trong do thi bang cach ket hop cac dac trung hien co voi cac dac trung nhung neu chung
     # co san.
     if embedding_feature is not None:
@@ -131,8 +131,8 @@ def create_input_for_gnn_fly(graphs_adj, labels, vertex_tags, node_size_list, su
         for sub_nodes in sub_graphs_nodes:
             sub_graph_emb.append(embedding_feature[sub_nodes])
         for i in range(len(X)):
-            print(X[i].shape)
-            print(sub_graph_emb[i].shape)
+            #print(X[i].shape)
+            #print(sub_graph_emb[i].shape)
             X[i] = np.concatenate([X[i], sub_graph_emb[i]], axis=1)
         # so luong kenh dac trung ban dau duoc cap nhat thanh so luong kenh dac trung dau tien trong X.
         initial_feature_channels = len(X[0][0])

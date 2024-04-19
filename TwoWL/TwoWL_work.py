@@ -7,6 +7,8 @@ import json
 from TwoWL.operators.datasets import load_dataset, dataset
 from TwoWL.model import train
 from TwoWL.model.model import LocalWLNet, WLNet, FWLNet, LocalFWLNet
+import streamlit as st
+from constant import *
 
 
 def work(args, device="cpu"):
@@ -67,6 +69,7 @@ def work(args, device="cpu"):
             'act1': act1,
             'lr': lr,
         }
+        #return valparam(setting)
         return valparam(setting)
 
     def valparam(kwargs):
@@ -75,7 +78,8 @@ def work(args, device="cpu"):
         if args.pattern == '2wl':
             mod = WLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         elif args.pattern == '2wl_l':
-            print("2wl_l")
+            #print("2wl_l")
+            #st.write("2wl_l")
             mod = LocalWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         elif args.pattern == '2fwl':
             mod = FWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
@@ -86,33 +90,52 @@ def work(args, device="cpu"):
 
     study = optuna.create_study(direction='maximize')
     study.optimize(selparam, n_trials=10)  # Tối ưu hoá với 100 thử nghiệm
-    best_params = study.best_params
+    #best_params = study.best_params
 
     # Tên tệp nhật ký để lưu trữ thông số
     log_file = "logs.json"
 
-    # Ghi thông số vào tệp nhật ký
-    with open(log_file, "w") as f:
-        json.dump(best_params, f)
+    value_file = "values.json"
 
-    print("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
+    with open(log_file, "w") as f:
+        param = [t.params for t in study.trials]
+        json.dump(param, f)
+
+    with open(value_file, "w") as f:
+        values = [t.value for t in study.trials]
+        json.dump(values, f)
+    
+    #print("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
+    st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
+    #st.write(best_params)
+
+def read_results_twowl():
+    auc_twowl = "fb-pages-food_auc_record_twowl.txt"
+
+    with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
+        values = json.load(f1)
+        info_values = json.load(f2)
+        auc = f3.readlines()
+    return values, info_values, auc
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--dataset', type=str, default="fb-pages-food")
-    parser.add_argument('--pattern', type=str, default="2wl_l")
-    parser.add_argument('--epoch', type=int, default=100)
-    parser.add_argument('--episode', type=int, default=200)
+    # import argparse
+    # parser = argparse.ArgumentParser(description='')
+    # parser.add_argument('--dataset', type=str, default="fb-pages-food")
+    # parser.add_argument('--pattern', type=str, default="2wl_l")
+    # parser.add_argument('--epoch', type=int, default=100)
+    # parser.add_argument('--episode', type=int, default=200)
 
-    parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--device', type=int, default=-1)
-    parser.add_argument('--path', type=str, default="Opt/")
-    parser.add_argument('--test', action="store_true")
-    parser.add_argument('--check', action="store_true")
-    args = parser.parse_args()
-    if args.device < 0:
-        args.device = "cpu"
-    else:
-        args.device = "cuda:" + str(args.device)
-    work(args.device)
+    # parser.add_argument('--seed', type=int, default=0)
+    # parser.add_argument('--device', type=int, default=-1)
+    # parser.add_argument('--path', type=str, default="Opt/")
+    # parser.add_argument('--test', action="store_true")
+    # parser.add_argument('--check', action="store_true")
+    # args = parser.parse_args()
+    # if args.device < 0:
+    #     args.device = "cpu"
+    # else:
+    #     args.device = "cuda:" + str(args.device)
+    # work(args.device)
+    pass
+
