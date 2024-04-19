@@ -1,12 +1,12 @@
 # How to run
 
-## python main.py --model Logistic (replace model name with your model)
+- python main.py --model Logistic (replace model name with your model)
 
-## streamlit run app.py
+- streamlit run app.py
 
-# Python --
+# Python --version
 
-3.7.16
+- 3.7.16
 
 | Package               | Version   |
 |-----------------------|-----------|
