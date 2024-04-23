@@ -27,8 +27,8 @@ def read_the_results_logistic():
         if line:
             auc, time = line.split()
             auc_value = float(auc.split(":")[1])
-            annotations_auc_twowl = float(time.split(":")[1])
-    return auc_value
+            annotations_auc_logis = float(time.split(":")[1])
+    return auc_value , annotations_auc_logis
 
 
 

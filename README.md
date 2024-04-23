@@ -1,8 +1,6 @@
 # How to run
 
-- python main.py --model Logistic (replace model name with your model)
-
-- streamlit run app.py
+- python app.py
 
 # Python --version
 
@@ -93,7 +91,7 @@
 | smart-open            | 7.0.4     |
 | smmap                 | 5.0.1     |
 | SQLAlchemy            | 2.0.29    |
-| streamlit             | 1.18.1    |
+| streamlit             | 1.23.1    |
 | tenacity              | 8.2.3     |
 | tensorboard           | 1.14.0    |
 | tensorflow            | 1.14.0    |

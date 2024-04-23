@@ -1,14 +1,15 @@
 import streamlit as st
+from assets.theme import set_custom_theme
 from LogisticRegression_Linkprediction.data.understanding_data import create_graph, plot_graph
 from LogisticRegression_Linkprediction.model.link_prediction import link_prediction_with_logistic, read_the_results_logistic
 from SEAL.operators.seal_link_predict import execute, read_the_results_seal
 from TwoWL import TwoWL_work
 import json
-import argparse
 import warnings
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 from constant import *
+from PIL import Image
 
 warnings.filterwarnings("ignore")
 
@@ -41,7 +42,6 @@ def creat_pylot_twowl(values, info_values, auc):
     fig.add_trace(go.Scatter(x=axis_x, y=values_auc, mode="markers+lines", name="AUC", line=dict(color="blue"),
                     text= annotations_auc, hovertemplate="<b>AUC:</b> %{y}<br><b>Time:</b> %{text}"))
     fig.update_layout(hovermode="closest", hoverdistance=10)
-    #fig.update_traces(hovertemplate="<b>Value:</b> %{y}<br><b>Annotation:</b> %{text}", text=annotations)
     for xi in axis_x:
         fig.add_vline(x=xi, line_dash="dot", line_color="lightgrey", opacity=0.5, name="Vertical Line")
     fig.update_layout(title="<b>THE CHART SHOWS THE CHANGE IN VALUE AND AUC ACCORDING TO EACH TRIAL</b>", title_font=dict(color="red", size=20))
@@ -53,7 +53,12 @@ def creat_pylot_twowl(values, info_values, auc):
 
 def link_prediction_menu(model_option):
     if model_option == "Logistic":
-        link_prediction_with_logistic()
+        #Neu muon train lai thi mo cmt doan nay
+        #link_prediction_with_logistic()
+        #Neu khong muon train lai thi mo 3 dong code nay
+        auc_value , time = read_the_results_logistic()
+        st.write("### Roc auc score with logistic regression: ", auc_value)
+        st.write("### Logistic model runtime: ", time)
     elif model_option == "SEAL":
         # Nếu muốn train lại từ đầu thì dùng hàng này, nó sẽ train lại từ đầu, 
         # không cmt hàm train trong execute vì auc sẽ rất thấp, nên đã chạy hàm này thì chạy luôn hàm train
@@ -94,7 +99,7 @@ def link_prediction_menu(model_option):
                     #annotations_auc_twowl = float(time.split(":")[1])
         
         # Lấy giá trị AUC của Logistic
-        results_logistic = read_the_results_logistic()
+        results_logistic, time_logistic = read_the_results_logistic()
 
         # Vẽ biểu đồ so sánh
         Model = ['Logistic', 'SEAL', 'TwoWL']
@@ -111,11 +116,15 @@ def link_prediction_menu(model_option):
 
 
 def main():
-    st.write("# :orange[LINK PREDICTION]")
     selected_tab = st.sidebar.radio("Option", ["Logistic", "SEAL", "TwoWL", "Compare"])
-
-    if st.sidebar.button("Run"):
+    submitted = st.sidebar.button("RUN", type="primary")
+    # if st.sidebar.button("RUN", type="primary"):
+    if submitted:
         link_prediction_menu(selected_tab)
+    else:
+        image = Image.open('./assets/img/review_gnn.png')
+        st.image(image, caption='Graph Neural Networks - An overview')
 
 if __name__ == "__main__":
+    set_custom_theme("LINK PREDICTION")
     main()

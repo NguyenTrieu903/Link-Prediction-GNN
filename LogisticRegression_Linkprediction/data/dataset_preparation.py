@@ -3,7 +3,7 @@ import networkx as nx
 from tqdm import tqdm
 
 def retrieve_unconnected(node_list_1, node_list_2, G):  # Retrieve Unconnected Node Pairs – Negative Samples
-    print("Create pairs of unconnected nodes...")
+
     # combine all nodes in a list
     node_list = node_list_1 + node_list_2
 
