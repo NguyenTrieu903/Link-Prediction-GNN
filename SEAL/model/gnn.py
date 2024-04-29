@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 import streamlit as st
+import time
+
 
 import constant
 from SEAL.utils import modelGCN
@@ -18,6 +20,7 @@ DENSE_NODES = 128
 DROP_OUTPUT_RATE = 0.5
 LEARNING_RATE_BASE = 0.00004
 LEARNING_RATE_DECAY = 0.99
+
 
 def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_test, learning_rate, debug):
     D_inverse_pl = tf.placeholder(dtype=tf.float32, shape=[None, None], name="D_inverse_pl")
@@ -131,6 +134,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     # return D_inverse_pl, A_tilde_pl, X_pl, Y_pl, node_size_pl, is_train, pos_score, loss, global_step, pre_y
     return modelGCN.model_GCN(D_inverse_pl, A_tilde_pl, X_pl, Y_pl, node_size_pl, is_train, pre_y, pos_score, train_op, global_step, loss)
 
+
 def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_list_train, epoch):
     D_inverse_pl = model.D_inverse_pl
     A_tilde_pl = model.A_tilde_pl
@@ -142,6 +146,13 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
     train_op, global_step, loss = model.train_op, model.global_step, model.loss
 
     train_data_size = X_train.shape[0]
+
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    last_rows = np.zeros((1, 1))
+    chart = st.line_chart()
+
     #print("train_data_size: ", train_data_size)
     with tf.Session() as sess:
         saver = tf.train.Saver()
@@ -168,10 +179,17 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
                     if np.argmax(pre_y_value, 1) == Y_train[i]:
                         train_acc += 1
             train_acc = train_acc / train_data_size    
-            #print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value))    
+            print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value)) 
+            status_text.text("%i%% Complete the training process" % ((epoch + 1) * 10))  # Hiển thị tiến độ
+            new_rows = np.full((1, 1), train_acc)
+            chart.add_rows(new_rows)
+            progress_bar.progress((epoch + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
+            time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
+        progress_bar.empty()
         saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
 
-def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test, debug=False):
+
+def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
     #start_t = time.time()
     pre_y = model.pre_y
     Y_pl = model.Y_pl
@@ -210,7 +228,7 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
         # saver = tf.train.Saver()
         # saver.restore(sess, '/home/nhattrieu-machine/Documents/SEAL-for-link-prediction-master/model-1000.meta')  # Đường dẫn tới tệp tin đã lưu
         #print("Model restored.")
-        st.write("Model restored.")
+        #st.write("Model restored.")
         # Prediction first element of train and test
         feed_dict = {X_pl: X_test_one, is_train: 0, A_tilde_pl: A_tilde_test_one, D_inverse_pl: D_inverse_test_one,  node_size_pl: nodes_size_list_test_one,
                          weight_1:weight_1_value, weight_2:weight_2_value, bias_1:bias_1_value, bias_2:bias_2_value, graph_weight_1:graph_weight_1_value, 

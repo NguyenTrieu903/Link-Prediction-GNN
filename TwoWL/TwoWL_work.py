@@ -8,10 +8,26 @@ from TwoWL.operators.datasets import load_dataset, dataset
 from TwoWL.model import train
 from TwoWL.model.model import LocalWLNet, WLNet, FWLNet, LocalFWLNet
 import streamlit as st
+from assets.theme import update_time
 from constant import *
+import time
+import numpy as np
 
 
 def work(args, device="cpu"):
+    global seconds_passed
+    seconds_passed = 0 
+
+    total_steps = 4
+    step_size = 100 / total_steps
+    current_step = 0
+
+    progress_bar = st.sidebar.progress(current_step)
+    status_text = st.sidebar.empty()
+    time_display = st.sidebar.empty()
+    status_text.text("0% Complete")
+
+    start_time = time.time()
     device = torch.device(device)
     bg = load_dataset(args.pattern)
     bg.to(device)
@@ -30,6 +46,11 @@ def work(args, device="cpu"):
         use_node_attr = True
     else:
         use_node_attr = False
+
+    current_step += step_size
+    status_text.text("{:.0f}% Complete".format(current_step))
+    progress_bar.progress(current_step / 100) 
+    update_time(time_display, start_time, time.time())
 
     def selparam(trial):
         nonlocal bg, trn_ds, val_ds, tst_ds
@@ -88,13 +109,37 @@ def work(args, device="cpu"):
         opt = Adam(mod.parameters(), lr=lr)
         return train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
 
+    start_time = time.time()
     study = optuna.create_study(direction='maximize')
-    study.optimize(selparam, n_trials=10)  # Tối ưu hoá với 100 thử nghiệm
-    #best_params = study.best_params
+    current_step += step_size
+    status_text.text("{:.0f}% Complete".format(current_step))
+    progress_bar.progress(current_step / 100) 
+    update_time(time_display, start_time, time.time())
 
+    start_time = time.time()
+    progress_ = st.progress(0)
+    status_= st.empty()
+    status_.text("0% Complete the training process")
+    chart = st.line_chart()
+    def callback(study, trial):
+        status_.text("{:.0f}% Complete the training process" .format((trial.number + 1) * 10))  # Hiển thị tiến độ
+        new_rows = np.full((1, 1), trial.value)
+        chart.add_rows(new_rows)
+        progress_.progress((trial.number + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
+        time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
+    
+
+    study.optimize(selparam, n_trials=10, callbacks=[lambda study, trial: callback(study, trial)])  # Tối ưu hoá với 100 thử nghiệm
+    #best_params = study.best_params
+    #progress_.empty()
+    current_step += step_size
+    status_text.text("{:.0f}% Complete".format(current_step))
+    progress_bar.progress(current_step / 100) 
+    update_time(time_display, start_time, time.time())
+
+    start_time = time.time()
     # Tên tệp nhật ký để lưu trữ thông số
     log_file = "logs.json"
-
     value_file = "values.json"
 
     with open(log_file, "w") as f:
@@ -104,9 +149,13 @@ def work(args, device="cpu"):
     with open(value_file, "w") as f:
         values = [t.value for t in study.trials]
         json.dump(values, f)
+    current_step += step_size
+    status_text.text("{:.0f}% Complete".format(current_step))
+    progress_bar.progress(current_step / 100) 
+    update_time(time_display, start_time, time.time())
     
     #print("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
-    st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
+    # st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
     #st.write(best_params)
 
 def read_results_twowl():

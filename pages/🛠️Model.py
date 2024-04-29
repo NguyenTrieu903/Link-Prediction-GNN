@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 from constant import *
 from PIL import Image
+import argparse
 
 warnings.filterwarnings("ignore")
 
@@ -37,8 +38,8 @@ def creat_pylot_twowl(values, info_values, auc):
     
     # Tạo biểu đồ đường kết hợp với điểm và chú thích
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=axis_x, y=values, mode="markers+lines", name="Values", line=dict(color="green"),
-                    text=annotations_value, hovertemplate="<b>Value:</b> %{y}<br><b>Annotation:</b> %{text}"))
+    # fig.add_trace(go.Scatter(x=axis_x, y=values, mode="markers+lines", name="Values", line=dict(color="green"),
+    #                 text=annotations_value, hovertemplate="<b>Value:</b> %{y}<br><b>Annotation:</b> %{text}"))
     fig.add_trace(go.Scatter(x=axis_x, y=values_auc, mode="markers+lines", name="AUC", line=dict(color="blue"),
                     text= annotations_auc, hovertemplate="<b>AUC:</b> %{y}<br><b>Time:</b> %{text}"))
     fig.update_layout(hovermode="closest", hoverdistance=10)
@@ -51,36 +52,35 @@ def creat_pylot_twowl(values, info_values, auc):
     st.plotly_chart(fig)
 
 
-def link_prediction_menu(model_option):
+def link_prediction_menu(model_option, train):
     if model_option == "Logistic":
-        #Neu muon train lai thi mo cmt doan nay
-        #link_prediction_with_logistic()
-        #Neu khong muon train lai thi mo 3 dong code nay
-        auc_value , time = read_the_results_logistic()
-        st.write("### Roc auc score with logistic regression: ", auc_value)
-        st.write("### Logistic model runtime: ", time)
+        if train:
+            link_prediction_with_logistic()
+        else:
+            auc_value , time = read_the_results_logistic()
+            st.write("### Roc auc score with logistic regression: ", auc_value)
+            st.write("### Logistic model runtime: ", time)
     elif model_option == "SEAL":
-        # Nếu muốn train lại từ đầu thì dùng hàng này, nó sẽ train lại từ đầu, 
-        # không cmt hàm train trong execute vì auc sẽ rất thấp, nên đã chạy hàm này thì chạy luôn hàm train
-        #execute(0, 0.1, 100, "auto", 0.00001)
-        # Chỉ chạy kết quả được kết quả lưu vào file
-        auc_value, time_value, test_acc_value, pos_score_value_one, prediction_one = read_the_results_seal()
-        st.write("#### AUC: " ,auc_value)
-        st.write("#### Test acc: ", test_acc_value)
-        st.write("#### Time consumption: ", time_value)
-        st.write("#### Pos_score_value: ",pos_score_value_one)
-        st.write("#### The predicted probability for the first element is:", prediction_one)
+        if train:
+            execute(0, 0.1, 100, "auto", 0.00001)
+        else:
+            auc_value, time_value, test_acc_value, pos_score_value_one, prediction_one = read_the_results_seal()
+            st.write("#### AUC: " ,auc_value)
+            st.write("#### Time consumption: ", time_value)
+            st.write("#### Pos_score_value: ",pos_score_value_one)
+            st.write("#### The predicted probability for the first element is:", prediction_one)
     elif model_option == "TwoWL":
-        # Neu can train lai thi chay 4 dong code sau
-        # Để hạn ché bị lỗi thì trước khi chạy sẽ resest file txt trước khi chạy để hạn chế bị lỗi
-        # with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_twowl.txt', 'a') as f:
-        #    f.truncate()
-        # args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=100, episode=200, seed=0, device="cpu", path="Opt/", test=False, check=False)
-        # TwoWL_work.work(args, args.device) 
-
-        # Neu khong can train lai thi chi can chay 2 dong code sau va comment 4 dong code ben tren
-        values, info_values, auc = TwoWL_work.read_results_twowl()
-        creat_pylot_twowl(values, info_values, auc)
+        if train:
+            # Để hạn ché bị lỗi thì trước khi chạy sẽ resest file txt trước khi chạy để hạn chế bị lỗi
+            with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_twowl.txt', 'w') as f:
+                f.write("")
+            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=100, episode=200, seed=0, device="cpu", path="Opt/", test=False, check=False)
+            TwoWL_work.work(args, args.device) 
+            values, info_values, auc = TwoWL_work.read_results_twowl()
+            creat_pylot_twowl(values, info_values, auc)
+        else:
+            values, info_values, auc = TwoWL_work.read_results_twowl()
+            creat_pylot_twowl(values, info_values, auc)
         
     elif model_option == "Compare":
         # Lấy giá trị AUC của SEAL
@@ -116,11 +116,12 @@ def link_prediction_menu(model_option):
 
 
 def main():
-    selected_tab = st.sidebar.radio("Option", ["Logistic", "SEAL", "TwoWL", "Compare"])
-    submitted = st.sidebar.button("RUN", type="primary")
+    selected_tab = st.sidebar.radio("**Option**", ["Logistic", "SEAL", "TwoWL", "Compare"])
+    train = st.sidebar.checkbox("**TRAIN**")  #có muốn thực hiện quá trình train không
+    submitted = st.sidebar.button("**RUN**", type="primary")
     # if st.sidebar.button("RUN", type="primary"):
     if submitted:
-        link_prediction_menu(selected_tab)
+        link_prediction_menu(selected_tab, train)
     else:
         image = Image.open('./assets/img/review_gnn.png')
         st.image(image, caption='Graph Neural Networks - An overview')

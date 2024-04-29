@@ -15,4 +15,13 @@ def set_custom_theme(title):
     '''
 
     st.markdown(page_bg_img, unsafe_allow_html=True)
+
+def update_time( time_display, start_time, end_time):
+    global seconds_passed
+    if 'seconds_passed' not in globals():
+        seconds_passed = 0
+    seconds_passed = seconds_passed + ( end_time - start_time)
+    time_now = f"Time elapsed: {seconds_passed} seconds"
+    time_display.empty()
+    time_display.text(time_now)
     
