@@ -3,7 +3,7 @@ from assets.theme import set_custom_theme
 from LogisticRegression_Linkprediction.data.understanding_data import create_graph, plot_graph
 from LogisticRegression_Linkprediction.model.link_prediction import link_prediction_with_logistic, read_the_results_logistic
 from SEAL.operators.seal_link_predict import execute, read_the_results_seal
-from TwoWL import TwoWL_work
+# from TwoWL import TwoWL_work
 import json
 import warnings
 import plotly.graph_objects as go
@@ -54,31 +54,31 @@ def creat_pylot_twowl(values, info_values, auc):
 
 def link_prediction_menu(model_option, train):
     if model_option == "Logistic":
-        if train:
-            link_prediction_with_logistic()
-        else:
+        # if train:
+        #     link_prediction_with_logistic()
+        # else:
             auc_value , time = read_the_results_logistic()
             st.write("### Roc auc score with logistic regression: ", auc_value)
             st.write("### Logistic model runtime: ", time)
     elif model_option == "SEAL":
-        if train:
-            execute(0, 0.1, 100, "auto", 0.00001)
-        else:
+        # if train:
+        #     execute(0, 0.1, 100, "auto", 0.00001)
+        # else:
             auc_value, time_value, test_acc_value, pos_score_value_one, prediction_one = read_the_results_seal()
             st.write("#### AUC: " ,auc_value)
             st.write("#### Time consumption: ", time_value)
             st.write("#### Pos_score_value: ",pos_score_value_one)
             st.write("#### The predicted probability for the first element is:", prediction_one)
     elif model_option == "TwoWL":
-        if train:
-            # Để hạn ché bị lỗi thì trước khi chạy sẽ resest file txt trước khi chạy để hạn chế bị lỗi
-            with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_twowl.txt', 'w') as f:
-                f.write("")
-            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=1000, episode=500, seed=0, device="cpu", path="Opt/", test=False, check=False)
-            TwoWL_work.work(args, args.device) 
-            values, info_values, auc = TwoWL_work.read_results_twowl()
-            creat_pylot_twowl(values, info_values, auc)
-        else:
+        # if train:
+        #     # Để hạn ché bị lỗi thì trước khi chạy sẽ resest file txt trước khi chạy để hạn chế bị lỗi
+        #     with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_twowl.txt', 'w') as f:
+        #         f.write("")
+        #     args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=1000, episode=500, seed=0, device="cpu", path="Opt/", test=False, check=False)
+        #     TwoWL_work.work(args, args.device)
+        #     values, info_values, auc = TwoWL_work.read_results_twowl()
+        #     creat_pylot_twowl(values, info_values, auc)
+        # else:
             values, info_values, auc = TwoWL_work.read_results_twowl()
             creat_pylot_twowl(values, info_values, auc)
         
