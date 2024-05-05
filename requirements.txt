@@ -1,5 +1,7 @@
 tensorflow==1.14.0
-pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 -c pytorch
+pytorch==1.13.1 
+torchvision==0.14.1 
+torchaudio==0.13.1
 pandas==1.0.0
 numpy==1.21.5
 matplotlib==3.0.3
