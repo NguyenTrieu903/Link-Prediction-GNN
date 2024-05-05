@@ -19,6 +19,6 @@ def main():
 
 if __name__ == "__main__":
     set_custom_theme("GRAPH VISUALIZATION")
-    image = Image.open('./assets/img/Facebook-gnn.png')
+    image = Image.open('./assets/img/Facebook_gnn.png')
     st.image(image)
     # main()
