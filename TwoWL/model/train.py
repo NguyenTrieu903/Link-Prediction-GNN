@@ -124,9 +124,9 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         if early_stop > early_stop_thd:
             break
     vprint(f"end test {tst_score:.3f}")
-    if verbose:
-        #with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
-        with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
-            f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
-                    round(t1 - t0, 4)) + '   ' + '\n')
+    # if verbose:
+    #     #with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
+    #     with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
+    #         f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
+    #                 round(t1 - t0, 4)) + '   ' + '\n')
     return best_val

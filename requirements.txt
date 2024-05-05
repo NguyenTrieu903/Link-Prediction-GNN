@@ -1,0 +1,15 @@
+tensorflow==1.14.0
+pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 -c pytorch
+pandas==1.0.0
+numpy==1.21.5
+matplotlib==3.0.3
+networkx==2.0
+scikit-learn==1.0
+tqdm==4.64.1
+gensim==3.8.3
+scipy==1.7.3
+optuna==3.6.1
+streamlit==1.23.1
+protobuf==3.20.0
+pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.1+cpu.html
+torch-geometric==2.3.1
