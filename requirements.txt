@@ -10,3 +10,4 @@ gensim
 scipy
 optuna
 torch-geometric
+torch-scatter
