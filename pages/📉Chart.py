@@ -2,6 +2,8 @@ import streamlit as st
 from LogisticRegression_Linkprediction.data.understanding_data import create_graph, plot_graph, load_data
 from assets.theme import set_custom_theme
 import warnings
+from PIL import Image
+
 warnings.filterwarnings("ignore")
 import argparse
 
@@ -17,4 +19,6 @@ def main():
 
 if __name__ == "__main__":
     set_custom_theme("GRAPH VISUALIZATION")
-    main()
+    image = Image.open('./assets/img/Facebook-gnn.png')
+    st.image(image)
+    # main()
