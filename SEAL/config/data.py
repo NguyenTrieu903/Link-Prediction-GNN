@@ -43,7 +43,7 @@ def learning_embedding(positive, negative, network_size, test_ratio, dimension, 
     :return:
     """
     print("learning embedding...")
-    # used training data only
+    # used training data only for embedding process
     test_size = int(test_ratio * positive.shape[0])
     train_posi, train_nega = positive[:-test_size], negative[:-test_size]
     # negative injection
