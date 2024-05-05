@@ -9,6 +9,7 @@ networkx==2.0
 scikit-learn==1.0
 tqdm==4.64.1
 gensim==3.8.3
+pyg-library
 scipy==1.7.3
 optuna==3.6.1
 streamlit==1.23.1
