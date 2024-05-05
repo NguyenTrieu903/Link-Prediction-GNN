@@ -76,8 +76,8 @@ def link_prediction_menu(model_option, train):
             auc_value, time_value, test_acc_value, pos_score_value_one, prediction_one = read_the_results_seal()
             st.write("#### AUC: " ,auc_value)
             st.write("#### Time consumption: ", time_value)
-            st.write("#### Pos_score_value: ",pos_score_value_one)
-            st.write("#### The predicted probability for the first element is:", prediction_one)
+            # st.write("#### Pos_score_value: ",pos_score_value_one)
+            # st.write("#### The predicted probability for the first element is:", prediction_one)
     elif model_option == "TwoWL":
         # if train:
         #     # Để hạn ché bị lỗi thì trước khi chạy sẽ resest file txt trước khi chạy để hạn chế bị lỗi
@@ -89,7 +89,6 @@ def link_prediction_menu(model_option, train):
         #     creat_pylot_twowl(values, info_values, auc)
         # else:
             values, info_values, auc =read_results_twowl()
-
             creat_pylot_twowl(values, info_values, auc)
         
     elif model_option == "Compare":
