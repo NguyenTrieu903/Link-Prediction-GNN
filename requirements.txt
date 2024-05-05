@@ -1,5 +1,5 @@
-tensorflow
-torch
+tensorflow==1.14.0
+torch==1.13.1
 pandas
 numpy
 matplotlib
