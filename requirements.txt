@@ -1,0 +1,9 @@
+streamlit==1.23.1
+tensorflow==1.14.0
+torch==1.13.1
+pandas==1.0.0
+numpy==1.21.5
+matplotlib==3.0.3
+networkx==2.0
+optuna==1.36.1
+
