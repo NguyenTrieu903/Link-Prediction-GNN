@@ -158,14 +158,14 @@ def work(args, device="cpu"):
     # st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
     #st.write(best_params)
 
-def read_results_twowl():
-    auc_twowl = "fb-pages-food_auc_record_twowl.txt"
-
-    with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
-        values = json.load(f1)
-        info_values = json.load(f2)
-        auc = f3.readlines()
-    return values, info_values, auc
+# def read_results_twowl():
+#     auc_twowl = "fb-pages-food_auc_record_twowl.txt"
+#
+#     with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
+#         values = json.load(f1)
+#         info_values = json.load(f2)
+#         auc = f3.readlines()
+#     return values, info_values, auc
 
 if __name__ == "__main__":
     # import argparse

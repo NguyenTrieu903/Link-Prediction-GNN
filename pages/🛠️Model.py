@@ -51,8 +51,17 @@ def creat_pylot_twowl(values, info_values, auc):
     fig.update_yaxes(showline=True, linewidth=1, linecolor="black")
     st.plotly_chart(fig)
 
+def read_results_twowl():
+    auc_twowl = "fb-pages-food_auc_record_twowl.txt"
+
+    with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
+        values = json.load(f1)
+        info_values = json.load(f2)
+        auc = f3.readlines()
+    return values, info_values, auc
 
 def link_prediction_menu(model_option, train):
+
     if model_option == "Logistic":
         # if train:
         #     link_prediction_with_logistic()
@@ -79,14 +88,15 @@ def link_prediction_menu(model_option, train):
         #     values, info_values, auc = TwoWL_work.read_results_twowl()
         #     creat_pylot_twowl(values, info_values, auc)
         # else:
-            values, info_values, auc = TwoWL_work.read_results_twowl()
+            values, info_values, auc =read_results_twowl()
+
             creat_pylot_twowl(values, info_values, auc)
         
     elif model_option == "Compare":
         # Lấy giá trị AUC của SEAL
         results_seal, time_value, test_acc_value, pos_score_value_one, prediction_one = read_the_results_seal()
         # Lấy giá trị AUC lớn nhất của mô hình TwoWL
-        values, info_values, auc = TwoWL_work.read_results_twowl()
+        values, info_values, auc = read_results_twowl()
         best_auc_twowl = 0.0
         annotations_auc_twowl = 0.0
         for line in auc:
