@@ -160,14 +160,25 @@ def work(args, device="cpu"):
 
 def read_results_twowl():
     auc_twowl = "fb-pages-food_auc_record_twowl.txt"
-
     with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
         values = json.load(f1)
         info_values = json.load(f2)
         auc = f3.readlines()
-    return values, info_values, auc
 
-if __name__ == "__main__":
+    best_auc_twowl = 0.0
+    annotations_auc_twowl = 0.0
+    for line in auc:
+        line = line.strip()
+        if line:
+            AUC, time = line.split()
+            AUC = float(AUC.split(":")[1])
+            if AUC >= best_auc_twowl:
+                best_auc_twowl = AUC
+                #annotations_auc_twowl = float(time.split(":")[1])
+
+    return values, info_values, auc, best_auc_twowl
+
+# if __name__ == "__main__":
     # import argparse
     # parser = argparse.ArgumentParser(description='')
     # parser.add_argument('--dataset', type=str, default="fb-pages-food")
@@ -186,5 +197,5 @@ if __name__ == "__main__":
     # else:
     #     args.device = "cuda:" + str(args.device)
     # work(args.device)
-    pass
+    # pass
 

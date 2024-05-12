@@ -6,6 +6,7 @@ from torch_geometric.utils import negative_sampling, add_self_loops
 from TwoWL.model.model import LocalWLNet
 import time
 from constant import *
+from assets.theme import *
 
 def train(mod, opt, dataset, batch_size, i):
     # print('dataset',dataset.__dict__)
@@ -83,7 +84,9 @@ def test(mod, dataset, test=False):
         -1, 1)
 
     result = roc_auc_score(dataset.y[mask].squeeze().cpu().numpy(), sig)
-    return result
+    #display_picture(ytest= dataset.y[mask].squeeze().cpu().numpy(), predictions=sig, roc = result, name = "roc_curve_logistic.png")
+    fpr, tpr, thresholds = roc_curve(dataset.y[mask].squeeze().cpu().numpy(), sig)
+    return result, fpr, tpr
 
 def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True):
     print("calling train_routine")
@@ -106,7 +109,7 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         t0 = time.time()
         loss, trn_score, train_idx = train(mod, opt, trn_ds, batch_size, train_idx)
         t1 = time.time()
-        val_score = test(mod, val_ds)
+        val_score, fpr, tpr = test(mod, val_ds)
         vprint(f"epoch: {i:03d}, trn: time {t1 - t0:.2f} s, loss {loss:.4f}, trn {trn_score:.4f}, val {val_score:.4f}",
                end=" ")
         early_stop += 1
@@ -115,7 +118,7 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
             best_val = val_score
             if verbose:
                 t0 = time.time()
-                tst_score = test(mod, tst_ds, True)
+                tst_score, fpr, tpr = test(mod, tst_ds, True)
                 t1 = time.time()
                 #vprint(f"time:{t1-t0:.4f}")
             vprint(f"tst {tst_score:.4f}")
@@ -124,9 +127,31 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         if early_stop > early_stop_thd:
             break
     vprint(f"end test {tst_score:.3f}")
-    # if verbose:
-    #     #with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
-    #     with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
-    #         f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
-    #                 round(t1 - t0, 4)) + '   ' + '\n')
+    if verbose:
+        #with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
+        with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
+            f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
+                    round(t1 - t0, 4)) + '   ' + '\n')
+        
+        values_auc = []
+        annotations_auc = []
+        with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'r') as f1:
+            auc = f1.readlines()
+        if auc:
+            for line in auc:
+                line = line.strip()
+                if line:
+                    AUC, times = line.split()
+                    #x_txt.append(len(x_txt) + 1)
+                    values_auc.append(float(AUC.split(":")[1]))
+                    annotations_auc.append(float(times.split(":")[1]))
+            if tst_score >= max(values_auc):
+                fpr_file = "fpr.json"
+                tpr_file = "tpr.json"
+
+                with open(fpr_file, "w") as f:
+                    json.dump(fpr.tolist(), f)
+
+                with open(tpr_file, "w") as f:
+                    json.dump(tpr.tolist(), f)
     return best_val
