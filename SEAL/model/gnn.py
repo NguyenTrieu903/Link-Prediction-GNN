@@ -186,10 +186,10 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
             progress_bar.progress((epoch + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
             time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
         progress_bar.empty()
-    saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
+        saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
 
 
-def predict(model,  sess, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
+def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
     #start_t = time.time()
     pre_y = model.pre_y
     Y_pl = model.Y_pl
