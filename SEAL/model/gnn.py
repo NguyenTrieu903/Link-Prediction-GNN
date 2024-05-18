@@ -69,7 +69,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     if debug:
         var_mean, var_variance, var_max, var_min = variable_summary(graph_weight_1)
 
-    # SORT (THRESHOLDING) POOLING LAYER: Su dung de tinh toan nguong dua tren phan tram (percentile) cua kich thuoc nodes trong mot tap hop cac do thi.
+    # THRESHOLDING POOLING LAYER: Su dung de tinh toan nguong dua tren phan tram (percentile) cua kich thuoc nodes trong mot tap hop cac do thi.
     nodes_size_list = list(nodes_size_list_train) + list(nodes_size_list_test)
     threshold_k = int(np.percentile(nodes_size_list, top_k))
     print("%s%% graphs have nodes less then %s." % (top_k, threshold_k))

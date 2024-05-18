@@ -84,7 +84,6 @@ def test(mod, dataset, test=False):
         -1, 1)
 
     result = roc_auc_score(dataset.y[mask].squeeze().cpu().numpy(), sig)
-    #display_picture(ytest= dataset.y[mask].squeeze().cpu().numpy(), predictions=sig, roc = result, name = "roc_curve_logistic.png")
     fpr, tpr, thresholds = roc_curve(dataset.y[mask].squeeze().cpu().numpy(), sig)
     return result, fpr, tpr
 

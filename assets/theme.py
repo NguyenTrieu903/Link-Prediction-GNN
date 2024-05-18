@@ -60,7 +60,37 @@ def plot_auc(ytest, predictions, roc, name):
 
     # Hiển thị biểu đồ trên Streamlit
     st.pyplot(fig)
-    
+
+def plot_auc_with_twowl(roc, name):
+
+    # Đọc dữ liệu từ tệp JSON
+    with open('fpr.json', 'r') as f:
+        fpr_list = json.load(f)
+    fpr= np.array(fpr_list, dtype=float)
+
+    with open('tpr.json', 'r') as f:
+        tpr_list = json.load(f)
+    tpr= np.array(tpr_list, dtype=float)
+
+    # Vẽ biểu đồ ROC
+    fig, ax = plt.subplots()
+    ax.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.4f)' % roc)
+    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title('Receiver Operating Characteristic (ROC) Curve')
+    ax.legend(loc="lower right")
+
+    # lưu biểu đồ ROC
+    os.makedirs(PATH_PICTURE, exist_ok=True)
+    output_path = os.path.join(PATH_PICTURE, name)
+    plt.savefig(output_path)
+
+    # Hiển thị biểu đồ trên Streamlit
+    st.pyplot(fig)
+
 def creat_pylot_twowl(values, info_values, auc, istrain):
     # Tạo danh sách các giá trị trục x
     axis_x = list(range(1, len(values) + 1))
@@ -97,32 +127,3 @@ def creat_pylot_twowl(values, info_values, auc, istrain):
     fig.update_yaxes(showline=True, linewidth=1, linecolor="black")
     st.plotly_chart(fig)
 
-def plot_auc_with_twowl(roc, name):
-
-    # Đọc dữ liệu từ tệp JSON
-    with open('fpr.json', 'r') as f:
-        fpr_list = json.load(f)
-    fpr= np.array(fpr_list, dtype=float)
-
-    with open('tpr.json', 'r') as f:
-        tpr_list = json.load(f)
-    tpr= np.array(tpr_list, dtype=float)
-
-    # Vẽ biểu đồ ROC
-    fig, ax = plt.subplots()
-    ax.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.4f)' % roc)
-    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    ax.set_xlim([0.0, 1.0])
-    ax.set_ylim([0.0, 1.05])
-    ax.set_xlabel('False Positive Rate')
-    ax.set_ylabel('True Positive Rate')
-    ax.set_title('Receiver Operating Characteristic (ROC) Curve')
-    ax.legend(loc="lower right")
-
-    # lưu biểu đồ ROC
-    os.makedirs(PATH_PICTURE, exist_ok=True)
-    output_path = os.path.join(PATH_PICTURE, name)
-    plt.savefig(output_path)
-
-    # Hiển thị biểu đồ trên Streamlit
-    st.pyplot(fig)

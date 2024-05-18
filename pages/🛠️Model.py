@@ -34,7 +34,7 @@ def link_prediction_menu(model_option, train):
             # resest file
             with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_twowl.txt', 'w') as f:
                 f.write("")
-            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=1000, episode=500, seed=0, device="cpu", path="Opt/", test=False, check=False)
+            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=100, episode=500, seed=0, device="cpu", path="Opt/", test=False, check=False)
             TwoWL_work.work(args, args.device) 
             values, info_values, auc, best_auc_twowl = TwoWL_work.read_results_twowl()
             creat_pylot_twowl(values, info_values, auc, True)

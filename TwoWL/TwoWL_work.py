@@ -54,6 +54,7 @@ def work(args, device="cpu"):
 
     def selparam(trial):
         nonlocal bg, trn_ds, val_ds, tst_ds
+        time_start = time.time()
         if random.random() < 0.1:
             bg = load_dataset(args.pattern)
             bg.to(device)
@@ -90,10 +91,10 @@ def work(args, device="cpu"):
             'act1': act1,
             'lr': lr,
         }
-        #return valparam(setting)
-        return valparam(setting)
+        
+        return valparam(setting, time_start, trial.number)
 
-    def valparam(kwargs):
+    def valparam(kwargs, time_start, trial_number):
         lr = kwargs.pop('lr')
         epoch = args.epoch
         if args.pattern == '2wl':
@@ -107,7 +108,10 @@ def work(args, device="cpu"):
         elif args.pattern == '2fwl_l':
             mod = LocalFWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         opt = Adam(mod.parameters(), lr=lr)
-        return train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
+        model = train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
+        time_end = time.time()
+        st.write(f"Trial {trial_number} duration: {time_end - time_start:.2f} seconds")
+        return model
 
     start_time = time.time()
     study = optuna.create_study(direction='maximize')
@@ -128,7 +132,7 @@ def work(args, device="cpu"):
         progress_.progress((trial.number + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
         time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
     
-
+    
     study.optimize(selparam, n_trials=10, callbacks=[lambda study, trial: callback(study, trial)])  # Tối ưu hoá với 100 thử nghiệm
     #best_params = study.best_params
     #progress_.empty()
