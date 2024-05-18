@@ -142,13 +142,13 @@ def work(args, device="cpu"):
     log_file = "logs.json"
     value_file = "values.json"
 
-    # with open(log_file, "w") as f:
-    #     param = [t.params for t in study.trials]
-    #     json.dump(param, f)
+    with open(log_file, "w") as f:
+        param = [t.params for t in study.trials]
+        json.dump(param, f)
 
-    # with open(value_file, "w") as f:
-    #     values = [t.value for t in study.trials]
-    #     json.dump(values, f)
+    with open(value_file, "w") as f:
+        values = [t.value for t in study.trials]
+        json.dump(values, f)
     current_step += step_size
     status_text.text("{:.0f}% Complete".format(current_step))
     progress_bar.progress(current_step / 100) 
