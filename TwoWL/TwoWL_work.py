@@ -54,6 +54,7 @@ def work(args, device="cpu"):
 
     def selparam(trial):
         nonlocal bg, trn_ds, val_ds, tst_ds
+        time_start = time.time()
         if random.random() < 0.1:
             bg = load_dataset(args.pattern)
             bg.to(device)
@@ -106,14 +107,20 @@ def work(args, device="cpu"):
             'act4': act4,
             'lr': lr,
         }
-        return valparam(setting)
+        return valparam(setting, time_start, trial.number)
 
-    def valparam(kwargs):
+    def valparam(kwargs, time_start, trial_number):
         lr = kwargs.pop('lr')
         epoch = args.epoch
         mod = WLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         opt = Adam(mod.parameters(), lr=lr)
-        return train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
+        model = train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
+        time_end = time.time()
+        #st.write(f"Trial {trial_number} duration: {time_end - time_start:.2f} seconds")
+        with open(PATH_TIME_TWOWL + 'time_twowl.txt', 'a') as f:
+            f.write('Time:' + str(round(time_end - time_start, 4)) + '\n')
+
+        return model
 
     start_time = time.time()
     study = optuna.create_study(direction='maximize')
@@ -135,6 +142,8 @@ def work(args, device="cpu"):
         time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
 
 
+
+
     study.optimize(selparam, n_trials=10, callbacks=[lambda study, trial: callback(study, trial)])  # Tối ưu hoá với 100 thử nghiệm
     #best_params = study.best_params
     #progress_.empty()
@@ -144,20 +153,25 @@ def work(args, device="cpu"):
     update_time(time_display, start_time, time.time())
 
     start_time = time.time()
+    # Tên tệp nhật ký để lưu trữ thông số
     log_file = "logs.json"
-    value_file = "values.json"
+    best_params = study.best_params
 
+    # value_file = "values.json"
+    # with open(log_file, "w") as f:
+    #     param = [t.params for t in study.trials]
+    #     json.dump(param, f)
+
+    # with open(value_file, "w") as f:
+    #     values = [t.value for t in study.trials]
+    #     json.dump(values, f)
     with open(log_file, "w") as f:
-        param = [t.params for t in study.trials]
-        json.dump(param, f)
-
-    with open(value_file, "w") as f:
-        values = [t.value for t in study.trials]
-        json.dump(values, f)
+        json.dump(best_params, f)
     current_step += step_size
     status_text.text("{:.0f}% Complete".format(current_step))
     progress_bar.progress(current_step / 100)
     update_time(time_display, start_time, time.time())
+
 
     #print("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
     # st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
@@ -165,13 +179,12 @@ def work(args, device="cpu"):
 
 def read_results_twowl():
     auc_twowl = "fb-pages-food_auc_record_twowl.txt"
-    with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
-        values = json.load(f1)
-        info_values = json.load(f2)
-        auc = f3.readlines()
+    with open("logs.json", "r") as f1, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f2, open(PATH_TIME_TWOWL + "time_twowl.txt", "r") as f3:
+        logs = json.load(f1)
+        auc = f2.readlines()
+        time_twowl = f3.readlines()
 
     best_auc_twowl = 0.0
-    annotations_auc_twowl = 0.0
     for line in auc:
         line = line.strip()
         if line:
@@ -179,7 +192,15 @@ def read_results_twowl():
             AUC = float(AUC.split(":")[1])
             if AUC >= best_auc_twowl:
                 best_auc_twowl = AUC
-                #annotations_auc_twowl = float(time.split(":")[1])
 
-    return values, info_values, auc, best_auc_twowl
+    time_train = []
+    for line in time_twowl:
+        line = line.strip()
+        if line:
+            time_value = float(line.split(":")[1])
+            time_train.append(time_value)
+    average_time = sum(time_train) / len(time_train)
+    return logs, best_auc_twowl, average_time
+
+
 
