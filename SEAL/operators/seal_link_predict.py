@@ -16,7 +16,6 @@ import optuna
 def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, epoch=10):
     global seconds_passed
     seconds_passed = 0 
-    st.title("Seal Framework")
     total_steps = 8
     step_size = 100 / total_steps
     current_step = 0
@@ -87,9 +86,7 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     update_time(time_display, start_t, time.time())
 
     # Dự đoán kết quả
-    #prediction = gnn.predict(model, X_test[0], Y_test[0], A_tilde_test[0], D_inverse_test[0], nodes_size_list_test[0])
     start_time = time.time()
-    #test_acc, prediction_one, prediction, pos_scores, pos_score_value_one = gnn.predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test)
     test_acc, prediction, pos_scores = gnn.predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test)
     # Tinh AUC
     auc = metrics.roc_auc_score(y_true=np.squeeze(Y_test), y_score=np.squeeze(pos_scores))
@@ -99,11 +96,6 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_time, time.time())
     
-
-    #st.write("AUC: %f" % auc)
-    #print("Probability for prediction is: ", prediction_one[0])
-    #st.write("The predicted probability for the first element is: ", prediction_one[0])
-    #st.write("Test acc:",test_acc)
     st.write("Time consumption: ", end_t - start_t)
 
     #Ghi kết quả vào file 

@@ -91,39 +91,3 @@ def plot_auc_with_twowl(roc, name):
     # Hiển thị biểu đồ trên Streamlit
     st.pyplot(fig)
 
-def creat_pylot_twowl(values, info_values, auc, istrain):
-    # Tạo danh sách các giá trị trục x
-    axis_x = list(range(1, len(values) + 1))
-
-    # Tạo danh sách các chú thích
-    annotations_value = []
-    for log in info_values:
-        annotation = json.dumps(log, indent=4)
-        annotations_value.append(annotation) 
-
-    values_auc = []
-    annotations_auc = []
-    for line in auc:
-        line = line.strip()
-        if line:
-            AUC, time = line.split()
-            #x_txt.append(len(x_txt) + 1)
-            values_auc.append(float(AUC.split(":")[1]))
-            annotations_auc.append(float(time.split(":")[1]))
-    
-    # Tạo biểu đồ đường kết hợp với điểm và chú thích
-    fig = go.Figure()
-    if istrain == False:
-        fig.add_trace(go.Scatter(x=axis_x, y=values, mode="markers+lines", name="Values", line=dict(color="green"),
-                        text=annotations_value, hovertemplate="<b>Value:</b> %{y}<br><b>Annotation:</b> %{text}"))
-    fig.add_trace(go.Scatter(x=axis_x, y=values_auc, mode="markers+lines", name="AUC", line=dict(color="blue"),
-                    text= annotations_auc, hovertemplate="<b>AUC:</b> %{y}<br><b>Time:</b> %{text}"))
-    fig.update_layout(hovermode="closest", hoverdistance=10)
-    for xi in axis_x:
-        fig.add_vline(x=xi, line_dash="dot", line_color="lightgrey", opacity=0.5, name="Vertical Line")
-    fig.update_layout(title="<b>THE CHART SHOWS THE CHANGE IN VALUE AND AUC ACCORDING TO EACH TRIAL</b>", title_font=dict(color="red", size=20))
-    fig.update_layout(yaxis_title="<b>Values</b>", xaxis_title ="<b>Trials</b>")
-    fig.update_xaxes(showline=True, linewidth=1, linecolor="black")
-    fig.update_yaxes(showline=True, linewidth=1, linecolor="black")
-    st.plotly_chart(fig)
-

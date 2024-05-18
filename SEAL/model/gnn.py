@@ -163,12 +163,12 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
             for _ in tqdm(range(train_data_size)):
                 batch_index = batch_index + 1 if batch_index < train_data_size - 1 else 0
                 feed_dict = {D_inverse_pl: D_inverse_train[batch_index],
-                             A_tilde_pl: A_tilde_train[batch_index],
-                             X_pl: X_train[batch_index],
-                             Y_pl: Y_train[batch_index],
-                             node_size_pl: nodes_size_list_train[batch_index],
-                             is_train: 1
-                             }
+                                A_tilde_pl: A_tilde_train[batch_index],
+                                X_pl: X_train[batch_index],
+                                Y_pl: Y_train[batch_index],
+                                node_size_pl: nodes_size_list_train[batch_index],
+                                is_train: 1
+                                }
                 loss_value, _, _ = sess.run([loss, train_op, global_step], feed_dict=feed_dict)
 
             train_acc = 0
@@ -186,10 +186,10 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
             progress_bar.progress((epoch + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
             time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
         progress_bar.empty()
-        saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
+    saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
 
 
-def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
+def predict(model,  sess, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
     #start_t = time.time()
     pre_y = model.pre_y
     Y_pl = model.Y_pl
@@ -224,21 +224,6 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
         weight_1_value, weight_2_value, bias_1_value, bias_2_value = sess.run([weight_1, weight_2, bias_1, bias_2])
         graph_weight_1_value, graph_weight_2_value, graph_weight_3_value, graph_weight_4_value = sess.run([graph_weight_1, graph_weight_2, graph_weight_3, graph_weight_4])
 
-        
-        # saver = tf.train.Saver()
-        # saver.restore(sess, '/home/nhattrieu-machine/Documents/SEAL-for-link-prediction-master/model-1000.meta')  # Đường dẫn tới tệp tin đã lưu
-        #print("Model restored.")
-        #st.write("Model restored.")
-        # # Prediction first element of train and test
-        # feed_dict = {X_pl: X_test_one, is_train: 0, A_tilde_pl: A_tilde_test_one, D_inverse_pl: D_inverse_test_one,  node_size_pl: nodes_size_list_test_one,
-        #                  weight_1:weight_1_value, weight_2:weight_2_value, bias_1:bias_1_value, bias_2:bias_2_value, graph_weight_1:graph_weight_1_value, 
-        #                  graph_weight_2: graph_weight_2_value, graph_weight_3 :graph_weight_3_value, graph_weight_4:graph_weight_4_value
-        #                  }
-        # pre_y_value_one, pos_score_value_one = sess.run([pre_y, pos_score], feed_dict=feed_dict)
-        # #print("pos_score_value: ", pos_score_value)
-        # st.write("pos_score_value: ", pos_score_value_one)
-        # prediction_one.append(np.argmax(pos_score_value_one, 1))
-
 
         # Prediction all elements of train and test
         for i in range(test_data_size):
@@ -252,5 +237,4 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
         test_acc = test_acc / test_data_size
             #saver.save(sess, os.path.join(MODEL_SAVE_PATH, data_name, MODEL_SAVE_NAME), global_step)
         
-    #return test_acc, prediction_one, prediction, scores, pos_score_value_one
     return  test_acc, prediction, scores

@@ -110,7 +110,10 @@ def work(args, device="cpu"):
         opt = Adam(mod.parameters(), lr=lr)
         model = train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         time_end = time.time()
-        st.write(f"Trial {trial_number} duration: {time_end - time_start:.2f} seconds")
+        #st.write(f"Trial {trial_number} duration: {time_end - time_start:.2f} seconds")
+        with open(PATH_TIME_TWOWL + 'time_twowl.txt', 'a') as f:
+            f.write('Time:' + str(round(time_end - time_start, 4)) + '\n')
+
         return model
 
     start_time = time.time()
@@ -144,33 +147,32 @@ def work(args, device="cpu"):
     start_time = time.time()
     # Tên tệp nhật ký để lưu trữ thông số
     log_file = "logs.json"
-    value_file = "values.json"
+    best_params = study.best_params
 
+    # value_file = "values.json"
+    # with open(log_file, "w") as f:
+    #     param = [t.params for t in study.trials]
+    #     json.dump(param, f)
+
+    # with open(value_file, "w") as f:
+    #     values = [t.value for t in study.trials]
+    #     json.dump(values, f)
     with open(log_file, "w") as f:
-        param = [t.params for t in study.trials]
-        json.dump(param, f)
-
-    with open(value_file, "w") as f:
-        values = [t.value for t in study.trials]
-        json.dump(values, f)
+        json.dump(best_params, f)
     current_step += step_size
     status_text.text("{:.0f}% Complete".format(current_step))
     progress_bar.progress(current_step / 100) 
     update_time(time_display, start_time, time.time())
     
-    #print("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
-    # st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
-    #st.write(best_params)
 
 def read_results_twowl():
     auc_twowl = "fb-pages-food_auc_record_twowl.txt"
-    with open("values.json", "r") as f1, open("logs.json", "r") as f2, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f3:
-        values = json.load(f1)
-        info_values = json.load(f2)
-        auc = f3.readlines()
+    with open("logs.json", "r") as f1, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f2, open(PATH_TIME_TWOWL + "time_twowl.txt", "r") as f3:
+        logs = json.load(f1)
+        auc = f2.readlines()
+        time_twowl = f3.readlines()
 
     best_auc_twowl = 0.0
-    annotations_auc_twowl = 0.0
     for line in auc:
         line = line.strip()
         if line:
@@ -178,28 +180,14 @@ def read_results_twowl():
             AUC = float(AUC.split(":")[1])
             if AUC >= best_auc_twowl:
                 best_auc_twowl = AUC
-                #annotations_auc_twowl = float(time.split(":")[1])
+                
+    time_train = []
+    for line in time_twowl:
+        line = line.strip()
+        if line:
+            time_value = float(line.split(":")[1])
+            time_train.append(time_value)
+    average_time = sum(time_train) / len(time_train)
+    return logs, best_auc_twowl, average_time
 
-    return values, info_values, auc, best_auc_twowl
-
-# if __name__ == "__main__":
-    # import argparse
-    # parser = argparse.ArgumentParser(description='')
-    # parser.add_argument('--dataset', type=str, default="fb-pages-food")
-    # parser.add_argument('--pattern', type=str, default="2wl_l")
-    # parser.add_argument('--epoch', type=int, default=100)
-    # parser.add_argument('--episode', type=int, default=200)
-
-    # parser.add_argument('--seed', type=int, default=0)
-    # parser.add_argument('--device', type=int, default=-1)
-    # parser.add_argument('--path', type=str, default="Opt/")
-    # parser.add_argument('--test', action="store_true")
-    # parser.add_argument('--check', action="store_true")
-    # args = parser.parse_args()
-    # if args.device < 0:
-    #     args.device = "cpu"
-    # else:
-    #     args.device = "cuda:" + str(args.device)
-    # work(args.device)
-    # pass
 
