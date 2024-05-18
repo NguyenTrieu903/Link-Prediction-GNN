@@ -25,6 +25,7 @@ def link_prediction_menu(model_option, train):
     elif model_option == "SEAL":
         if train:
             execute(0, 0.1, 100, "auto", 0.00001)
+
         else:
             display_picture('roc_curve_seal.png', 'Roc auc score with seal framework')
             auc_value, time_value = read_the_results_seal()
@@ -34,21 +35,25 @@ def link_prediction_menu(model_option, train):
             # resest file
             with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_twowl.txt', 'w') as f:
                 f.write("")
-            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=1000, episode=500, seed=0, device="cpu", path="Opt/", test=False, check=False)
+            with open(PATH_TIME_TWOWL + 'time_twowl.txt', 'w') as f:
+                f.write("")
+            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=100, seed=0, device="cpu", path="Opt/", test=False, check=False)
             TwoWL_work.work(args, args.device) 
-            values, info_values, auc, best_auc_twowl = TwoWL_work.read_results_twowl()
-            creat_pylot_twowl(values, info_values, auc, True)
+            logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
             plot_auc_with_twowl(roc=best_auc_twowl, name = 'roc_curve_twowl')
+            st.write("#### Time consumption: ", average_time)
+            #st.write("#### The best parameters of the model are: ", logs)
         else:
-            values, info_values, auc, best_auc_twowl = TwoWL_work.read_results_twowl()
+            logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
             display_picture('roc_curve_twowl.png', 'Roc auc score with twowl')
-            creat_pylot_twowl(values, info_values, auc, False)
+            st.write("#### Time consumption: ", average_time)
+            #st.write("#### The best parameters of the model are: ", logs)
         
     elif model_option == "Compare":
         # Lấy giá trị AUC của SEAL
         results_seal, time_value= read_the_results_seal()
         # Lấy giá trị AUC lớn nhất của mô hình TwoWL
-        values, info_values, auc, best_auc_twowl = TwoWL_work.read_results_twowl()
+        logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
         
         # Lấy giá trị AUC của Logistic
         results_logistic, time_logistic = read_the_results_logistic()
