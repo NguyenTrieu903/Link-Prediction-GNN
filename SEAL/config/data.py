@@ -24,8 +24,9 @@ def load_data(network_type):
     negative_all = list(nx.non_edges(G))
     np.random.shuffle(negative_all)
     negative = np.asarray(negative_all[:len(positive)])
-    print("positve examples: %d, negative examples: %d." % (len(positive), len(negative)))
     np.random.shuffle(positive)
+    print("positve examples: %d, negative examples: %d." % (len(positive), len(negative)))
+    
     if np.min(positive) == 1:
         positive -= 1
         negative -= 1

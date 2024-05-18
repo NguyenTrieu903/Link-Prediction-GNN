@@ -32,10 +32,14 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
 
     # trainable parameters of graph convolution layer
     # tao cac bien co ten la graph_weight_1 voi cac gia tri ngau nhien cu the.Duoc su dung trong qua trinh khoi tao cac trong so cua mang no-ron 
-    graph_weight_1 = tf.Variable(tf.truncated_normal(shape=[initial_channels, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32), name="graph_weight_1")
-    graph_weight_2 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32), name="graph_weight_2")
-    graph_weight_3 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32), name="graph_weight_3")
-    graph_weight_4 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, 1], stddev=0.1, dtype=tf.float32), name="graph_weight_4")
+    graph_weight_1 = tf.Variable(tf.truncated_normal(shape=[initial_channels, GRAPH_CONV_LAYER_CHANNEL], 
+                                                     stddev=0.1, dtype=tf.float32), name="graph_weight_1")
+    graph_weight_2 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], 
+                                                     stddev=0.1, dtype=tf.float32), name="graph_weight_2")
+    graph_weight_3 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], 
+                                                     stddev=0.1, dtype=tf.float32), name="graph_weight_3")
+    graph_weight_4 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, 1], 
+                                                     stddev=0.1, dtype=tf.float32), name="graph_weight_4")
 
     # GRAPH CONVOLUTION LAYER
     # thuc hien mot loat cac phep tinh ma tran de (nhu la 1 lop xu ly) trong mang no-ron.
@@ -95,13 +99,15 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     # kernel = (filter_width, in_channel, out_channel)
     # Thuc hien phep tinh chap 1 chieu tren du lieu dau vao bang cach su dung bo lap conv1d_kernel_1
     # Tao mot bien conv1d_kernel_1 de luu tru bo loc cho phep tich chap mot chieu
-    conv1d_kernel_1 = tf.Variable(tf.truncated_normal(shape=[CONV1D_1_FILTER_WIDTH, 1, CONV1D_1_OUTPUT], stddev=0.1, dtype=tf.float32))
+    conv1d_kernel_1 = tf.Variable(tf.truncated_normal(shape=[CONV1D_1_FILTER_WIDTH, 1, CONV1D_1_OUTPUT], 
+                                                      stddev=0.1, dtype=tf.float32))
     # Su dung tf.nn.conv1d de thuc hien phep tich chap 1 chieu
     conv_1d_a = tf.nn.conv1d(graph_conv_output_flatten, conv1d_kernel_1, stride=CONV1D_1_FILTER_WIDTH, padding="VALID")
     assert conv_1d_a.shape == [1, threshold_k, CONV1D_1_OUTPUT]
 
     # 1-D CONVOLUTION LAYER 2:
-    conv1d_kernel_2 = tf.Variable(tf.truncated_normal(shape=[CONV1D_2_FILTER_WIDTH, CONV1D_1_OUTPUT, CONV1D_2_OUTPUT], stddev=0.1, dtype=tf.float32))
+    conv1d_kernel_2 = tf.Variable(tf.truncated_normal(shape=[CONV1D_2_FILTER_WIDTH, CONV1D_1_OUTPUT, CONV1D_2_OUTPUT], 
+                                                      stddev=0.1, dtype=tf.float32))
     conv_1d_b = tf.nn.conv1d(conv_1d_a, conv1d_kernel_2, stride=1, padding="VALID")
     assert conv_1d_b.shape == [1, threshold_k - CONV1D_2_FILTER_WIDTH + 1, CONV1D_2_OUTPUT]
     # Su dung de lam phang (flatten) dau ra cua mot lop convolutional 1D thanh mot vecto 
