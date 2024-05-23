@@ -142,3 +142,5 @@ def create_input_for_gnn_fly(graphs_adj, labels, vertex_tags, node_size_list, su
         pass
     print("so, initial feature channels: ", initial_feature_channels)
     return np.array(D_inverse), graphs_adj, Y, X, node_size_list, initial_feature_channels  # ps, graph_adj is A_title
+
+

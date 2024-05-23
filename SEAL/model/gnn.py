@@ -40,7 +40,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
                                                      stddev=0.1, dtype=tf.float32), name="graph_weight_3")
     graph_weight_4 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, 1], 
                                                      stddev=0.1, dtype=tf.float32), name="graph_weight_4")
-
+    
     # GRAPH CONVOLUTION LAYER
     # thuc hien mot loat cac phep tinh ma tran de (nhu la 1 lop xu ly) trong mang no-ron.
     gl_1_XxW = tf.matmul(X_pl, graph_weight_1)
@@ -73,15 +73,29 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     if debug:
         var_mean, var_variance, var_max, var_min = variable_summary(graph_weight_1)
 
-    # THRESHOLDING POOLING LAYER: Su dung de tinh toan nguong dua tren phan tram (percentile) cua kich thuoc nodes trong mot tap hop cac do thi.
+    # # THRESHOLDING POOLING LAYER: Su dung de tinh toan nguong dua tren phan tram (percentile) cua kich thuoc nodes trong mot tap hop cac do thi.
+    # nodes_size_list = list(nodes_size_list_train) + list(nodes_size_list_test)
+    # threshold_k = int(np.percentile(nodes_size_list, top_k))
+    # print("%s%% graphs have nodes less then %s." % (top_k, threshold_k))
+
+    # # Dung de lua chon cac phan tu quan trong tu graph_conv_output va tao chung thanh mot tensor moi.  => co the toi uu (thay the cach lay cac phan tu quan trong: Z_4[:, 0])
+    # graph_conv_output_stored = tf.gather(graph_conv_output, tf.nn.top_k(Z_4[:, 0], node_size_pl).indices)
+
+    # # Tao ra 1 tensor moi dua tren dieu kien: node_size_pl < threshold_k
+    # graph_conv_output_top_k = tf.cond(tf.less(node_size_pl, threshold_k),
+    #                                   lambda: tf.concat(axis=0,
+    #                                                     values=[graph_conv_output_stored,
+    #                                                             tf.zeros(dtype=tf.float32,
+    #                                                                      shape=[threshold_k-node_size_pl,
+    #                                                                             GRAPH_CONV_LAYER_CHANNEL*3])]),
+    #                                   lambda: tf.slice(graph_conv_output_stored, begin=[0, 0], size=[threshold_k, -1]))
+
+    # THRESHOLDING POOLING LAYER: 
     nodes_size_list = list(nodes_size_list_train) + list(nodes_size_list_test)
     threshold_k = int(np.percentile(nodes_size_list, top_k))
-    print("%s%% graphs have nodes less then %s." % (top_k, threshold_k))
 
-    # Dung de lua chon cac phan tu quan trong tu graph_conv_output va tao chung thanh mot tensor moi.  => co the toi uu (thay the cach lay cac phan tu quan trong: Z_4[:, 0])
     graph_conv_output_stored = tf.gather(graph_conv_output, tf.nn.top_k(Z_4[:, 0], node_size_pl).indices)
 
-    # Tao ra 1 tensor moi dua tren dieu kien: node_size_pl < threshold_k
     graph_conv_output_top_k = tf.cond(tf.less(node_size_pl, threshold_k),
                                       lambda: tf.concat(axis=0,
                                                         values=[graph_conv_output_stored,
@@ -116,13 +130,13 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     # Sau khi thuc hien cac phep tinh tren ma tran dau vao -> trich xuat dac trung thong qua cac convolution layer, sau do dua vao cac lop neural network de thuc hien du doan
     # DENSE LAYER: Dung de tao ra mot lop ket noi day du (fully connected layer) trong mang noron.
     # Dung de tao ma tran trong so. Kich thuoc ma tran trong so la: [so luong dac trung dau vao, so do vi trong lop ket noi day du]
-    # Tao lop neural network dau tien
+    # # Tao lop neural network dau tien
     weight_1 = tf.Variable(tf.truncated_normal(shape=[int(conv_output_flatten.shape[1]), DENSE_NODES], stddev=0.1), name="weight_1")
     # Khoi tao bias cua lop ket noi day du. 
     bias_1 = tf.Variable(tf.zeros(shape=[DENSE_NODES]), name="bias_1")
     # Dung de thuc hien cac phep tinh de tao dau ra cua mot lop ket noi day du trong mang no-ron su dung ham kich hoat RELU
     dense_z = tf.nn.relu(tf.matmul(conv_output_flatten, weight_1) + bias_1)
-    # Thuc hien qua trinh loai bo ngau nhien 1 phan cua dau ra tu lop ket noi day du -> giup ngan chan viec mang no-ron hoc thuoc qua muc va giam nguy co onverfitting
+    # Thuc hien qua trinh loai bo ngau nhien 1 phan cua dau ra tu lop ket noi day du -> giup ngan chan viec mang no-ron hoc thuoc qua muc va giam nguy co overfitting
     if is_train == 1:
         dense_z = tf.layers.dropout(dense_z, DROP_OUTPUT_RATE)
 
@@ -130,6 +144,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     weight_2 = tf.Variable(tf.truncated_normal(shape=[DENSE_NODES, 2]), name="weight_2")
     bias_2 = tf.Variable(tf.zeros(shape=[2]), name="bias_2")
     pre_y = tf.matmul(dense_z, weight_2) + bias_2
+
     # Sau do ap dung ham tinh sac xuat softmax tren dau ra cua lop thu 2
     pos_score = tf.nn.softmax(pre_y)
 

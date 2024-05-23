@@ -99,6 +99,7 @@ def link2subgraph(positive, negative, nodes_size, test_ratio, hop, network_type,
         vertex_map = dict([(x, vertex_tags_set.index(x)) for x in vertex_tags_set])
         for index, graph_tag in tqdm(enumerate(vertex_tags)):
             vertex_tags[index] = list(itemgetter(*graph_tag)(vertex_map))
+
     return graphs_adj, labels, vertex_tags, node_size_list, sub_graphs_nodes, tags_size
 
 def extract_subgraph(node_pair, G, A, hop, network_type, max_neighbors):

@@ -28,6 +28,7 @@ def split_train_test(D_inverse, A_tilde, X, Y, nodes_size_list, rate=0.1):
     return D_inverse_train, D_inverse_test, A_tilde_train, A_tilde_test, X_train, X_test, Y_train, Y_test, \
            nodes_size_list_train, nodes_size_list_test
 
+
 # Ham dung de gan nhan cho cac nut trong do thi dua tren mot thuat toan goi la node labeling
 def node_labeling(graph_adj, network_type):
     nodes_size = len(graph_adj)
