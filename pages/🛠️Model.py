@@ -24,7 +24,7 @@ def link_prediction_menu(model_option, train):
             st.write("### Logistic model runtime: ", time)
     elif model_option == "SEAL":
         if train:
-            execute(0, 0.1, 100, "auto", 0.00001)
+            execute(0, 0.1, 100, "auto", 0.0005)
 
         else:
             display_picture('roc_curve_seal.png', 'Roc auc score with seal framework')
@@ -37,7 +37,7 @@ def link_prediction_menu(model_option, train):
                 f.write("")
             with open(PATH_TIME_TWOWL + 'time_twowl.txt', 'w') as f:
                 f.write("")
-            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=100, seed=0, device="cpu", path="Opt/", test=False, check=False)
+            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl", epoch=10, seed=0, device="cpu", path="Opt/", test=False, check=False)
             TwoWL_work.work(args, args.device) 
             logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
             plot_auc_with_twowl(roc=best_auc_twowl, name = 'roc_curve_twowl')
@@ -75,6 +75,7 @@ def link_prediction_menu(model_option, train):
 def main():
     selected_tab = st.sidebar.radio("**Option**", ["Logistic", "SEAL", "TwoWL", "Compare"])
     train = st.sidebar.checkbox("**TRAIN**")  #run train ?
+    # train = False
     submitted = st.sidebar.button("**RUN**", type="primary")
     if submitted:
         link_prediction_menu(selected_tab, train)
