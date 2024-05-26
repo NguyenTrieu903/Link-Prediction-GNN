@@ -6,7 +6,7 @@ import optuna
 import json
 from TwoWL.operators.datasets import load_dataset, dataset
 from TwoWL.model import train
-from TwoWL.model.model import WLNet
+from TwoWL.model.model import LocalWLNet, WLNet, FWLNet, LocalFWLNet
 import streamlit as st
 from assets.theme import update_time
 from constant import *
@@ -64,59 +64,51 @@ def work(args, device="cpu"):
             val_ds = dataset(*bg.split(1))
             tst_ds = dataset(*bg.split(2))
         lr = trial.suggest_categorical("lr", [0.0005, 0.001, 0.005, 0.01, 0.05])
-        layer1 = trial.suggest_int("layer1", 2, 3)
-        layer2 = trial.suggest_int("layer2", 1, 3)
-        layer3 = trial.suggest_int("layer3", 1, 3)
-        hidden_dim_1 = trial.suggest_categorical("h1", [16, 20, 24])
-        hidden_dim_2 = trial.suggest_categorical("h1", [16, 20, 24])
-        dp0_0 = trial.suggest_float("dp0_0", 0.0, 0.8, step=0.1)
-        dp0_1 = trial.suggest_float("dp0_1", 0.0, 0.8, step=0.1)
-        dp1 = trial.suggest_float("dp1", 0.0, 0.5, step=0.1)
-        dp2 = trial.suggest_float("dp2", 0.0, 0.5, step=0.1)
-        dp3 = trial.suggest_float("dp3", 0.0, 0.5, step=0.1)
-        ln0 = trial.suggest_categorical("ln0", [True, False])
-        ln1 = trial.suggest_categorical("ln1", [True, False])
-        ln2 = trial.suggest_categorical("ln2", [True, False])
-        ln3 = trial.suggest_categorical("ln3", [True, False])
-        ln4 = trial.suggest_categorical("ln4", [True, False])
-        act0 = trial.suggest_categorical("a0", [True, False])
-        act1 = trial.suggest_categorical("a1", [True, False])
-        act2 = trial.suggest_categorical("a2", [True, False])
-        act3 = trial.suggest_categorical("a3", [True, False])
-        act4 = trial.suggest_categorical("a4", [True, False])
+        depth1 = trial.suggest_int("l1", 1, 3)
+        depth2 = trial.suggest_int("l2", 1, 3)
+        channels_1wl = trial.suggest_categorical("h1", [24, 32, 64])
+        channels_2wl = trial.suggest_categorical("h2", [16, 24])
+        dp_lin0 = trial.suggest_float("dpl0", 0.0, 0.8, step=0.1)
+        dp_lin1 = trial.suggest_float("dpl1", 0.0, 0.8, step=0.1)
+        dp_emb = trial.suggest_float("dpe", 0.0, 0.5, step=0.1)
+        dp_1wl0 = trial.suggest_float("dp10", 0.0, 0.5, step=0.1)
+        dp_1wl1 = trial.suggest_float("dp11", 0.0, 0.5, step=0.1)
+        dp_2wl = trial.suggest_float("dp2", 0.0, 0.5, step=0.1)
+        act0 = trial.suggest_categorical("a1", [True, False])
+        act1 = trial.suggest_categorical("a2", [True, False])
         setting = {
-            'hidden_dim_1':hidden_dim_1,
-            'hidden_dim_2':hidden_dim_2,
-            'layer1': layer1,
-            'layer2': layer2,
-            'layer3': layer3,
-            'dp0_0': dp0_0,
-            'dp0_1': dp0_1,
-            'dp1': dp1,
-            'dp2': dp2,
-            'dp3': dp3,
-            'ln0': ln0,
-            'ln1': ln1,
-            'ln2': ln2,
-            'ln3': ln3,
-            'ln4': ln4,
+            'dp_lin0': dp_lin0,
+            'dp_lin1': dp_lin1,
+            'dp_emb': dp_emb,
+            'dp_1wl0': dp_1wl0,
+            'dp_1wl1': dp_1wl1,
+            'dp_2wl': dp_2wl,
+            'channels_1wl': channels_1wl,
+            'channels_2wl': channels_2wl,
+            'depth1': depth1,
+            'depth2': depth2,
             'act0': act0,
             'act1': act1,
-            'act2': act2,
-            'act3': act3,
-            'act4': act4,
             'lr': lr,
         }
+
         return valparam(setting, time_start, trial.number)
 
     def valparam(kwargs, time_start, trial_number):
         lr = kwargs.pop('lr')
         epoch = args.epoch
-        mod = WLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
+        if args.pattern == '2wl':
+            mod = WLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
+        elif args.pattern == '2wl_l':
+            mod = LocalWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
+        elif args.pattern == '2fwl':
+            mod = FWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
+        elif args.pattern == '2fwl_l':
+            mod = LocalFWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         opt = Adam(mod.parameters(), lr=lr)
         model = train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         time_end = time.time()
-        #st.write(f"Trial {trial_number} duration: {time_end - time_start:.2f} seconds")
+        # st.write(f"Trial {trial_number} duration: {time_end - time_start:.2f} seconds")
         with open(PATH_TIME_TWOWL + 'time_twowl.txt', 'a') as f:
             f.write('Time:' + str(round(time_end - time_start, 4)) + '\n')
 
@@ -131,22 +123,21 @@ def work(args, device="cpu"):
 
     start_time = time.time()
     progress_ = st.progress(0)
-    status_= st.empty()
+    status_ = st.empty()
     status_.text("0% Complete the training process")
     chart = st.line_chart()
+
     def callback(study, trial):
-        status_.text("{:.0f}% Complete the training process" .format((trial.number + 1) * 10))  # Hiển thị tiến độ
+        status_.text("{:.0f}% Complete the training process".format((trial.number + 1) * 10))  # Hiển thị tiến độ
         new_rows = np.full((1, 1), trial.value)
         chart.add_rows(new_rows)
         progress_.progress((trial.number + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
         time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
 
-
-
-
-    study.optimize(selparam, n_trials=10, callbacks=[lambda study, trial: callback(study, trial)])  # Tối ưu hoá với 100 thử nghiệm
-    #best_params = study.best_params
-    #progress_.empty()
+    study.optimize(selparam, n_trials=10,
+                   callbacks=[lambda study, trial: callback(study, trial)])  # Tối ưu hoá với 100 thử nghiệm
+    # best_params = study.best_params
+    # progress_.empty()
     current_step += step_size
     status_text.text("{:.0f}% Complete".format(current_step))
     progress_bar.progress(current_step / 100)
@@ -173,13 +164,10 @@ def work(args, device="cpu"):
     update_time(time_display, start_time, time.time())
 
 
-    #print("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
-    # st.write("Các thông số tối ưu đã được lưu vào tệp nhật ký:", log_file)
-    #st.write(best_params)
-
 def read_results_twowl():
     auc_twowl = "fb-pages-food_auc_record_twowl.txt"
-    with open("logs.json", "r") as f1, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f2, open(PATH_TIME_TWOWL + "time_twowl.txt", "r") as f3:
+    with open("logs.json", "r") as f1, open(PATH_SAVE_TEST_AUC + auc_twowl, "r") as f2, open(
+            PATH_TIME_TWOWL + "time_twowl.txt", "r") as f3:
         logs = json.load(f1)
         auc = f2.readlines()
         time_twowl = f3.readlines()
@@ -201,6 +189,3 @@ def read_results_twowl():
             time_train.append(time_value)
     average_time = sum(time_train) / len(time_train)
     return logs, best_auc_twowl, average_time
-
-
-

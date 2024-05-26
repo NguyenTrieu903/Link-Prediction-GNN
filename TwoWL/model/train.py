@@ -3,9 +3,11 @@ from TwoWL.utils import sample_block, double
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 from torch_geometric.utils import negative_sampling, add_self_loops
+from TwoWL.model.model import LocalWLNet
 import time
 from constant import *
 from assets.theme import *
+
 
 def train(mod, opt, dataset, batch_size, i):
     # print('dataset',dataset.__dict__)
@@ -31,21 +33,21 @@ def train(mod, opt, dataset, batch_size, i):
     pos2 = torch.cat((idx1, idx2), dim=0)
     opt.zero_grad()
     # print("ei2_new", ei2_new)
-    # if isinstance(mod, LocalWLNet):
-    #     pred = mod(x_new, ei_new, dataset.pos1, pos2, ei2_new)
+    if isinstance(mod, LocalWLNet):
+        pred = mod(x_new, ei_new, dataset.pos1, pos2, ei2_new)
     # else:
-    pred_pos = dataset.pos1[idx1][:, 0].reshape(-1, 2)
-    if mod.use_feat:
-            edge_index, _ = add_self_loops(dataset.ei)
-            pred_neg = negative_sampling(
-                dataset.ei,
-                num_nodes=dataset.x.shape[0],
-                num_neg_samples=neg_batchsize,
-            ).t().to(dataset.x.device)
-    else:
-        pred_neg = dataset.pos1[idx2][:, 0].reshape(-1, 2)
-        pred_links = torch.cat([pred_pos, pred_neg], 0)
-        pred = mod(x_new, ei_new, pred_links, ei2_new)
+    #     pred_pos = dataset.pos1[idx1][:, 0].reshape(-1, 2)
+    #     if mod.use_feat:
+    #         edge_index, _ = add_self_loops(dataset.ei)
+    #         pred_neg = negative_sampling(
+    #             dataset.ei,
+    #             num_nodes=dataset.x.shape[0],
+    #             num_neg_samples=neg_batchsize,
+    #         ).t().to(dataset.x.device)
+    #     else:
+    #         pred_neg = dataset.pos1[idx2][:, 0].reshape(-1, 2)
+    #     pred_links = torch.cat([pred_pos, pred_neg], 0)
+    #     pred = mod(x_new, ei_new, pred_links, ei2_new)
     loss = F.binary_cross_entropy_with_logits(pred, y)
     loss.backward()
     opt.step()
@@ -61,22 +63,22 @@ def train(mod, opt, dataset, batch_size, i):
 @torch.no_grad()
 def test(mod, dataset, test=False):
     mod.eval()
-    # if isinstance(mod, LocalWLNet):
+    if isinstance(mod, LocalWLNet):
+        pred = mod(
+            dataset.x,
+            dataset.ei,
+            dataset.pos1,
+            dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
+            dataset.ei2,
+            True)
+    # else:
+    #     pred_links = dataset.pos1[dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device)][:,0].reshape(-1,2)
     #     pred = mod(
     #         dataset.x,
     #         dataset.ei,
-    #         dataset.pos1,
-    #         dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
+    #         pred_links,
     #         dataset.ei2,
     #         True)
-    # else:
-    pred_links = dataset.pos1[dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device)][:,0].reshape(-1,2)
-    pred = mod(
-            dataset.x,
-            dataset.ei,
-            pred_links,
-            dataset.ei2,
-            True)
     sig = pred.sigmoid().cpu()
     mask = torch.cat(
         [torch.ones([1, sig.shape[0]], dtype=bool), torch.zeros([1, sig.shape[0]], dtype=bool)]).t().reshape(
@@ -85,6 +87,7 @@ def test(mod, dataset, test=False):
     result = roc_auc_score(dataset.y[mask].squeeze().cpu().numpy(), sig)
     fpr, tpr, thresholds = roc_curve(dataset.y[mask].squeeze().cpu().numpy(), sig)
     return result, fpr, tpr
+
 
 def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True):
     print("calling train_routine")
@@ -118,7 +121,7 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
                 t0 = time.time()
                 tst_score, fpr, tpr = test(mod, tst_ds, True)
                 t1 = time.time()
-                #vprint(f"time:{t1-t0:.4f}")
+                # vprint(f"time:{t1-t0:.4f}")
             vprint(f"tst {tst_score:.4f}")
         else:
             vprint()
@@ -126,11 +129,11 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
             break
     vprint(f"end test {tst_score:.3f}")
     if verbose:
-        #with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
+        # with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
         with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
             f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
-                    round(t1 - t0, 4)) + '   ' + '\n')
-        
+                round(t1 - t0, 4)) + '   ' + '\n')
+
         values_auc = []
         annotations_auc = []
         with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'r') as f1:
@@ -140,6 +143,7 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
                 line = line.strip()
                 if line:
                     AUC, times = line.split()
+                    # x_txt.append(len(x_txt) + 1)
                     values_auc.append(float(AUC.split(":")[1]))
                     annotations_auc.append(float(times.split(":")[1]))
             if tst_score >= max(values_auc):
