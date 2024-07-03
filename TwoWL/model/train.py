@@ -1,11 +1,10 @@
+import time
+
 import torch
-from TwoWL.utils import sample_block, double
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
-from torch_geometric.utils import negative_sampling, add_self_loops
-from TwoWL.model.model import LocalWLNet
-import time
-from constant import *
+
+from TwoWL.utils import sample_block, double
 from assets.theme import *
 
 
@@ -33,21 +32,7 @@ def train(mod, opt, dataset, batch_size, i):
     pos2 = torch.cat((idx1, idx2), dim=0)
     opt.zero_grad()
     # print("ei2_new", ei2_new)
-    if isinstance(mod, LocalWLNet):
-        pred = mod(x_new, ei_new, dataset.pos1, pos2, ei2_new)
-    # else:
-    #     pred_pos = dataset.pos1[idx1][:, 0].reshape(-1, 2)
-    #     if mod.use_feat:
-    #         edge_index, _ = add_self_loops(dataset.ei)
-    #         pred_neg = negative_sampling(
-    #             dataset.ei,
-    #             num_nodes=dataset.x.shape[0],
-    #             num_neg_samples=neg_batchsize,
-    #         ).t().to(dataset.x.device)
-    #     else:
-    #         pred_neg = dataset.pos1[idx2][:, 0].reshape(-1, 2)
-    #     pred_links = torch.cat([pred_pos, pred_neg], 0)
-    #     pred = mod(x_new, ei_new, pred_links, ei2_new)
+    pred = mod(x_new, ei_new, dataset.pos1, pos2, ei2_new)
     loss = F.binary_cross_entropy_with_logits(pred, y)
     loss.backward()
     opt.step()
@@ -63,22 +48,13 @@ def train(mod, opt, dataset, batch_size, i):
 @torch.no_grad()
 def test(mod, dataset, test=False):
     mod.eval()
-    if isinstance(mod, LocalWLNet):
-        pred = mod(
-            dataset.x,
-            dataset.ei,
-            dataset.pos1,
-            dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
-            dataset.ei2,
-            True)
-    # else:
-    #     pred_links = dataset.pos1[dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device)][:,0].reshape(-1,2)
-    #     pred = mod(
-    #         dataset.x,
-    #         dataset.ei,
-    #         pred_links,
-    #         dataset.ei2,
-    #         True)
+    pred = mod(
+        dataset.x,
+        dataset.ei,
+        dataset.pos1,
+        dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
+        dataset.ei2,
+        True)
     sig = pred.sigmoid().cpu()
     mask = torch.cat(
         [torch.ones([1, sig.shape[0]], dtype=bool), torch.zeros([1, sig.shape[0]], dtype=bool)]).t().reshape(
@@ -91,6 +67,7 @@ def test(mod, dataset, test=False):
 
 def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True):
     print("calling train_routine")
+
     def vprint(*args, **kwargs):
         if verbose:
             print(*args, **kwargs)

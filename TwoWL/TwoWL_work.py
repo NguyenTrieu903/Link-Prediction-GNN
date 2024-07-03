@@ -1,17 +1,18 @@
+import json
 import random
+import time
+
+import numpy as np
+import optuna
+import streamlit as st
 import torch
 from torch.optim import Adam
 
-import optuna
-import json
-from TwoWL.operators.datasets import load_dataset, dataset
 from TwoWL.model import train
-from TwoWL.model.model import LocalWLNet, WLNet, FWLNet, LocalFWLNet
-import streamlit as st
+from TwoWL.model.model import LocalWLNet
+from TwoWL.operators.datasets import load_dataset, dataset
 from assets.theme import update_time
 from constant import *
-import time
-import numpy as np
 
 
 def work(args, device="cpu"):
@@ -97,14 +98,7 @@ def work(args, device="cpu"):
     def valparam(kwargs, time_start, trial_number):
         lr = kwargs.pop('lr')
         epoch = args.epoch
-        if args.pattern == '2wl':
-            mod = WLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
-        elif args.pattern == '2wl_l':
-            mod = LocalWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
-        elif args.pattern == '2fwl':
-            mod = FWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
-        elif args.pattern == '2fwl_l':
-            mod = LocalFWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
+        mod = LocalWLNet(max_degree, use_node_attr, trn_ds.na, **kwargs).to(device)
         opt = Adam(mod.parameters(), lr=lr)
         model = train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         time_end = time.time()
@@ -148,14 +142,6 @@ def work(args, device="cpu"):
     log_file = "logs.json"
     best_params = study.best_params
 
-    # value_file = "values.json"
-    # with open(log_file, "w") as f:
-    #     param = [t.params for t in study.trials]
-    #     json.dump(param, f)
-
-    # with open(value_file, "w") as f:
-    #     values = [t.value for t in study.trials]
-    #     json.dump(values, f)
     with open(log_file, "w") as f:
         json.dump(best_params, f)
     current_step += step_size

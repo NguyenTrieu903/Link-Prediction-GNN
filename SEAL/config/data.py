@@ -13,7 +13,7 @@ def load_data(network_type):
     :param network_type: use 0 and 1 stands for undirected or directed graph, respectively
     :return:
     """
-    print("load data...")
+    print("load operators...")
     positive_df = pd.read_csv(constant.PATH_EDGES, delimiter=',', dtype=int)
     positive = positive_df.to_numpy()
 
@@ -31,6 +31,7 @@ def load_data(network_type):
         negative -= 1
     return positive, negative, len(G.nodes())
 
+
 def learning_embedding(positive, negative, network_size, test_ratio, dimension, network_type, negative_injection=True):
     """
     :param positive: ndarray, from 'load_data', all positive edges
@@ -43,7 +44,7 @@ def learning_embedding(positive, negative, network_size, test_ratio, dimension, 
     :return:
     """
     print("learning embedding...")
-    # used training data only for embedding process
+    # used training operators only for embedding process
     test_size = int(test_ratio * positive.shape[0])
     train_posi, train_nega = positive[:-test_size], negative[:-test_size]
     # negative injection
@@ -76,10 +77,11 @@ def learning_embedding(positive, negative, network_size, test_ratio, dimension, 
     print("embedding feature shape: ", embedding_feature.shape)
     return embedding_feature
 
+
 def create_input_for_gnn_fly(graphs_adj, labels, vertex_tags, node_size_list, sub_graphs_nodes,
                              embedding_feature, explicit_feature, tags_size):
     print("create input for gnn on fly, (skipping I/O operation)")
-    # graphs, nodes_size_list, labels = data["graphs"], data["nodes_size_list"], data["labels"]
+    # graphs, nodes_size_list, labels = operators["graphs"], operators["nodes_size_list"], operators["labels"]
 
     # 1 - prepare Y
     # dung de tao ma tran nhan Y trong do moi phan tu co gia tri 1 neu tuong ung voi mot canh co nhan 1, va co gia tri 0 neu tuong ung voi 1 canh co nhan 0
@@ -121,7 +123,7 @@ def create_input_for_gnn_fly(graphs_adj, labels, vertex_tags, node_size_list, su
             X.append(np.divide(degree_total, np.sum(degree_total)).reshape(-1, 1))
         initial_feature_channels = 1
     X = np.array(X)
-    #print(X)
+    # print(X)
     # doan code xay dung cac embedding features cho cac dinh trong do thi bang cach ket hop cac dac trung hien co voi cac dac trung nhung neu chung
     # co san.
     if embedding_feature is not None:
@@ -131,8 +133,8 @@ def create_input_for_gnn_fly(graphs_adj, labels, vertex_tags, node_size_list, su
         for sub_nodes in sub_graphs_nodes:
             sub_graph_emb.append(embedding_feature[sub_nodes])
         for i in range(len(X)):
-            #print(X[i].shape)
-            #print(sub_graph_emb[i].shape)
+            # print(X[i].shape)
+            # print(sub_graph_emb[i].shape)
             X[i] = np.concatenate([X[i], sub_graph_emb[i]], axis=1)
         # so luong kenh dac trung ban dau duoc cap nhat thanh so luong kenh dac trung dau tien trong X.
         initial_feature_channels = len(X[0][0])
