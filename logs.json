@@ -1,1 +1,0 @@
-{"lr": 0.01, "layer1": 2, "layer2": 2, "layer3": 3, "h1": 20, "dp0_0": 0.4, "dp0_1": 0.0, "dp1": 0.0, "dp2": 0.5, "dp3": 0.5, "ln0": false, "ln1": false, "ln2": true, "ln3": false, "ln4": false, "a0": false, "a1": true, "a2": false, "a3": true, "a4": false}
