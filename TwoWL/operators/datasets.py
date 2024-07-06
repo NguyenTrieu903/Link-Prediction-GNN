@@ -45,8 +45,8 @@ class BaseGraph:
     def preprocess(self):
         self.edge_indexs = [
             self.edge_pos[:, :self.num_pos[0]],
-            self.edge_pos[:, :self.num_pos[0]],
-            self.edge_pos[:, :self.num_pos[0] + self.num_pos[1]]
+            self.edge_pos[:, :self.num_pos[1]],
+            self.edge_pos[:, :self.num_pos[2]]
         ]
 
         self.edge_attrs = [
@@ -61,27 +61,31 @@ class BaseGraph:
         '''
         pos_edges = [
             self.edge_pos[:, :self.num_pos[0]],
-            self.edge_pos[:,
-                          self.num_pos[0]:self.num_pos[0] + self.num_pos[1]],
-            self.edge_pos[:, -self.num_pos[2]:]
+            self.edge_pos[:, :self.num_pos[1]],
+            self.edge_pos[:, :self.num_pos[2]]
         ]
         neg_edges = [
             self.edge_neg[:, :self.num_neg[0]],
-            self.edge_neg[:,
-                          self.num_neg[0]:self.num_neg[0] + self.num_neg[1]],
-            self.edge_neg[:, -self.num_neg[2]:]
+            self.edge_neg[:, :self.num_neg[1]],
+            self.edge_neg[:, :self.num_neg[2]]
         ]
 
+        # dim = 1 sẽ nối theo chiều từ trái sang phải đọc lần lượt từng tensor rồi nối lại
+        # Thêm neg_edges[0] vào đầu danh sách các cạnh dự đoán để đảm bảo rằng tập dữ liệu dự đoán bao gồm cả cạnh dương và cạnh âm
         pred_edges = [neg_edges[0]] + [
             torch.cat((pos_edges[i], neg_edges[i]), dim=1)
             for i in range(1, 3)
         ]
 
+        # đoạn code này nối edge_indexs và pred_edges theo chiều hàng.
+        # nhằm mục đích kết hợp các cạnh từ đồ thị gốc và các cạnh dự đoán, chuyển đổi chúng, và lưu trữ trong danh sách mới
+        # pos1s = 'positive edges set 1'
         self.pos1s = [
             torch.cat((self.edge_indexs[i].t(), pred_edges[i].t()), dim=0)
             for i in range(3)
         ]
 
+        # Dùng để tạo các nhãn cho các cạnh. Cạnh positive được gán giá trị 1 và cạnh neg được gán giá trị 0
         self.ys = [torch.zeros((neg_edges[0].shape[1], 1),
                                  device=self.edge_pos.device)]+[
             torch.cat((torch.ones((pos_edges[i].shape[1], 1),
@@ -92,16 +96,18 @@ class BaseGraph:
                                    device=self.edge_pos.device)))
             for i in range(1, 3)
         ]
+        """
+            ei2: edge_index_2 hoặc edge_index_extended
+            ei2 có thể biểu thị một phiên bản mở rộng hoặc biến đổi của edge_index, có thể bao gồm thông tin bổ sung hoặc cấu trúc đặc biệt nào đó.
+            Trong một số trường hợp, ei2 có thể chứa các cặp chỉ số cạnh cho một tập hợp cạnh mở rộng, như các cạnh dự đoán hoặc các cạnh đã được xử 
+            lý qua một hàm cụ thể.
+        """
         if self.pattern == '2wl_l':
             self.ei2s = [
                 get_ei2(self.num_nodes, self.edge_indexs[0], pred_edges[0]),
                 get_ei2(self.num_nodes, self.edge_indexs[1], pred_edges[1]),
                 get_ei2(self.num_nodes, self.edge_indexs[2], pred_edges[2])
             ]
-            #np.save('2wl_train_edge_{}.npy'.format(self.num_neg[0]), ei2_0.cpu().numpy())
-            #np.save('2wl_test_edge_{}.npy'.format(self.num_neg[0]), ei2_2.cpu().numpy())
-        else:
-            self.ei2s = [None for _ in range(3)]
 
 
     def split(self, split: int):
@@ -109,28 +115,19 @@ class BaseGraph:
             split], self.pos1s[split], self.ys[split], self.ei2s[split]
 
     def setPosDegreeFeature(self):
-        #print(self.edge_indexs[0], self.edge_attrs[0], (self.x.shape[0], self.x.shape[0]))
-
-        self.x = [
+        self.x_backup = [
                       degree(self.edge_indexs[0], self.num_nodes) for i in range(0, 2)
                   ] + [
                       degree(self.edge_indexs[1], self.num_nodes) for i in range(2, 3)
                   ]
-
+        self.x = [
+                     degree(self.edge_indexs[0], self.num_nodes)
+                 ] + [
+                     degree(self.edge_indexs[1], self.num_nodes)
+                 ] + [
+                     degree(self.edge_indexs[2], self.num_nodes)
+                 ]
         self.max_x = max([torch.max(_).item() for _ in self.x])
-
-    def setPosOneFeature(self):
-        self.x = torch.ones((self.x.shape[0], 1), dtype=torch.int64)
-        self.max_x = 1
-
-    def setPosNodeIdFeature(self):
-        self.x = torch.arange(self.x.shape[0],
-                              dtype=torch.int64).reshape(self.x.shape[0], 1)
-        self.max_x = self.num_nodes - 1
-
-    def to_undirected(self):
-        if not is_undirected(self.edge_pos):
-            self.edge_pos = to_undirected(self.edge_pos)
 
     def to(self, device):
         self.x = self.x.to(device)
@@ -204,7 +201,7 @@ def do_edge_split(data, val_ratio=0.05, test_ratio=0.1, neg_pool_max=False):
             num_nodes=data.num_nodes,
             num_neg_samples=data.train_pos_edge_index.shape[1])
 
-    print(data.train_neg_edge_index.shape)
+    print("data.train_pos_edge_index", data.train_pos_edge_index.shape)
     data.val_neg_edge_index = negative_sampling(
         torch.cat((edge_index, data.val_pos_edge_index), dim=-1),
         num_nodes=data.num_nodes,
@@ -223,4 +220,5 @@ def do_edge_split(data, val_ratio=0.05, test_ratio=0.1, neg_pool_max=False):
     split_edge['valid']['edge_neg'] = data.val_neg_edge_index
     split_edge['test']['edge'] = data.test_pos_edge_index
     split_edge['test']['edge_neg'] = data.test_neg_edge_index
+    print("split_edge['train']['edge']", split_edge['train']['edge'].size())
     return split_edge

@@ -1,106 +1,9 @@
 from torch import nn
-import torch
 from torch.nn.modules.dropout import Dropout
-from torch_geometric.nn import GCNConv, GraphNorm, SAGEConv, APPNP
+from torch_geometric.nn import GCNConv, GraphNorm
+
 # from utils import reverse, sparse_bmm, sparse_cat, add_zero, edge_list
-import time
 from TwoWL.utils import *
-class WLNet(torch.nn.Module):
-    def __init__(self,
-                 max_x,
-                 use_feat=False,
-                 feat=None,
-                 hidden_dim_1=20,
-                 hidden_dim_2=20,
-                 layer1=2,
-                 layer2=1,
-                 layer3=1,
-                 dp0_0 = 0.0,
-                 dp0_1 = 0.0,
-                 dp1=0.0,
-                 dp2=0.0,
-                 dp3=0.0,
-                 ln0=True,
-                 ln1=True,
-                 ln2=True,
-                 ln3=True,
-                 ln4=True,
-                 act0=False,
-                 act1=False,
-                 act2=False,
-                 act3=True,
-                 act4=True,
-                 ):
-        super(WLNet, self).__init__()
-
-        self.use_feat = use_feat
-        self.feat = feat
-        use_affine = False
-
-        relu_lin = lambda a, b, dp, lnx, actx: Seq([
-            nn.Linear(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine) if lnx else nn.Identity(),
-            nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True) if actx else nn.Identity()])
-        if feat is not None:
-            self.lin1 = nn.Sequential(
-                nn.Dropout(dp0_0),
-                relu_lin(feat.shape[1], hidden_dim_1, dp0_1, ln0, act0)
-            )
-
-        Convs = lambda a, b, dp, lnx, actx: Seq([
-            SAGEConv(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine) if lnx else nn.Identity(),
-            nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True) if actx else nn.Identity()])
-
-        self.embedding = torch.nn.Sequential(torch.nn.Embedding(max_x + 1, hidden_dim_1),
-                                             torch.nn.Dropout(p=dp1))
-        #self.embedding = nn.Embedding(max_x + 1, latent_size_1)
-
-        self.nconvs = nn.ModuleList([Convs(hidden_dim_1, hidden_dim_1, dp2, ln1, act1)] +
-                                    [Convs(hidden_dim_1, hidden_dim_1, dp2, ln2, act2) for _ in range(layer1 - 1)]
-                                    )
-
-        input_edge_size = hidden_dim_1
-
-        self.h_1 = Seq([relu_lin(input_edge_size + 1, hidden_dim_2, dp3, ln3, act3)] +
-                       [relu_lin(hidden_dim_2, hidden_dim_2, dp3, ln3, act3) for _ in range(layer2 - 1)])
-
-        self.g_1 = Seq([relu_lin(hidden_dim_2 * 2 + input_edge_size + 1, hidden_dim_2, dp3, ln4, act4)] +
-                       [relu_lin(hidden_dim_2, hidden_dim_2, dp3, ln4, act4) for _ in range(layer3 - 1)])
-
-        self.lin_dir = torch.nn.Linear(hidden_dim_2, 1)
-
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight)
-
-    def forward(self, x, ei, pos, ei2=None, test=False):
-        edge_index = ei
-        n = x.shape[0]
-        if self.use_feat:
-            x = self.feat
-            x = self.lin1(x)
-        else:
-            x = self.embedding(x)
-        # x = F.relu(self.nlin1(x))
-
-        for conv in self.nconvs:
-            x = conv(x, edge_index)
-        colx = x.unsqueeze(0).expand(n, -1, -1).reshape(n * n, -1)
-        rowx = x.unsqueeze(1).expand(-1, n, -1).reshape(n * n, -1)
-        x = rowx * colx
-        x = x.reshape(n, n, -1)
-        eim = torch.zeros((n * n,), device=x.device)
-        eim[edge_index[0] * n + edge_index[1]] = 1
-        eim = eim.reshape(n, n, 1)
-        x = torch.cat((x, eim), dim=-1)
-        x = mataggr(x, self.h_1, self.g_1)
-        x = (x * x.permute(1, 0, 2)).reshape(n * n, -1)
-        x = x[pos[:, 0] * n + pos[:, 1]]
-        x = self.lin_dir(x)
-        return x
 
 class LocalWLNet(nn.Module):
     def __init__(self,
@@ -111,25 +14,67 @@ class LocalWLNet(nn.Module):
                  channels_2wl=24,
                  depth1=2,
                  depth2=1,
-                 dp_lin0 = 0.2,
-                 dp_lin1 = 0.30000000000000004,
-                 dp_emb = 0.4,
+                 dp_lin0=0.2,
+                 dp_lin1=0.30000000000000004,
+                 dp_emb=0.4,
                  dp_1wl0=0.30000000000000004,
                  dp_2wl=0.30000000000000004,
                  dp_1wl1=0.1,
-                 act0 = True,
-                 act1 = False,
+                 act0=True,
+                 act1=False,
                  ):
         super().__init__()
 
         use_affine = False
 
+        """
+            Là một hàm lambda (hay hàm ẩn danh) được định nghĩa để tạo ra một chuỗi các lớp linear neural network (nn.Sequential).
+             nn.Linear(a, b): 
+                Chuyển đổi một tensor từ không gian đầu vào với kích thước a sang không gian đầu ra với kích thước b. 
+                Mục đích biến đổi không gian đặc trưng của dữ liệu để phù hợp với mục tiêu của mô hình
+             nn.LayerNorm(b, elementwise_affine=use_affine) if lnx else nn.Identity():  
+                Nó chuẩn hóa các đặc trưng (features) đầu vào sao cho chúng có mean (trung bình) gần bằng 0 và độ lệch chuẩn gần bằng 1. 
+                Tham số b là số lượng đặc trưng đầu ra của layer trước đó (sau khi đi qua nn.Linear).
+                elementwise_affine=use_affine: Tham số này quyết định xem liệu layer chuẩn hóa có sử dụng tham số scale và shift để biến đổi dữ liệu 
+                    sau chuẩn hóa hay không. Nếu use_affine là True, tức là sử dụng tham số; ngược lại là không sử dụng.
+                nn.Identity(): Đây là một module trong PyTorch không làm thay đổi dữ liệu đầu vào mà chỉ trả về nó nguyên vẹn. Nó được sử dụng khi 
+                    không cần áp dụng bất kỳ biến đổi nào lên dữ liệu.
+            nn.Dropout(p=dp, inplace=True):
+                Sử dụng để thực hiện phép dropout trong mạng nơ-ron. Phép dropout là một kỹ thuật regularization phổ biến trong quá trình huấn luyện 
+                    mạng nơ-ron để ngăn chặn việc overfitting.
+                Tham số p=dp xác định xác suất bỏ qua (dropout probability), tức là xác suất một unit (nơ-ron) sẽ bị loại bỏ ngẫu nhiên trong quá trình 
+                huấn luyện. Đây là một giá trị số thực nằm trong khoảng từ 0 đến 1.
+                Tham số inplace=True cho biết rằng phép dropout sẽ được thực hiện trực tiếp trên đầu vào mà không cần tạo ra một bản sao của nó. 
+                Điều này có thể giúp tiết kiệm bộ nhớ và tăng tốc độ thực thi, bởi vì nó sẽ sử dụng trực tiếp bộ nhớ hiện có mà không cần phải tạo thêm 
+                bộ nhớ phụ.
+                Phép dropout giúp mô hình tránh việc phụ thuộc quá mức vào một số unit cụ thể trong quá trình huấn luyện, làm cho mô hình trở nên mạnh mẽ 
+                hơn và tổng quát hóa tốt hơn đối với dữ liệu mới.
+            nn.ReLU(inplace=True) if actx else nn.Identity()):
+                Sử dụng để áp dụng hàm kích hoạt ReLU (Rectified Linear Unit) trong một mạng nơ-ron
+                Tham số inplace=True: Nếu được đặt thành True, ReLU sẽ thay đổi đầu vào trực tiếp mà không cần tạo bản sao của nó. Điều này tiết kiệm 
+                bộ nhớ và làm giảm thời gian thực thi. Tuy nhiên, nó cũng có thể dẫn đến việc mất mát dữ liệu không mong muốn nếu không sử dụng cẩn thận.
+                nn.Identity(): Đây là một lớp đơn giản không làm thay đổi giá trị đầu vào và trả về đầu ra như là đầu vào của nó. Nó được sử dụng khi 
+                không cần áp dụng bất kỳ biến đổi nào cho dữ liệu.
+        """
         relu_lin = lambda a, b, dp, lnx, actx: nn.Sequential(
             nn.Linear(a, b),
             nn.LayerNorm(b, elementwise_affine=use_affine) if lnx else nn.Identity(),
             nn.Dropout(p=dp, inplace=True),
             nn.ReLU(inplace=True) if actx else nn.Identity())
 
+        """
+            Là một hàm lambda được định nghĩa để tạo ra một chuỗi các lớp Conv neural network (nn.Sequential).
+            GCNConv(insize, outsize):
+                Lớp này thực hiện phép tích chập trên dữ liệu đồ thị. Đầu vào của nó là insize, là kích thước của đặc trưng đầu vào của mỗi đỉnh trong 
+                đồ thị. outsize là đặc trưng đầu ra của mỗi đỉnh sau khi áp dụng phép tích chập. GCNConv được thiết kế để học các biểu diễn đặc trưng 
+                của đồ thị dựa trên cấu trúc liên kết giữa các đỉnh.
+            GraphNorm(outsize):
+                Sử dụng để thực hiện chuẩn hóa các đặc trưng (features) của đồ thị theo một cách tương tự như Layer Normalization nhưng được áp dụng 
+                trên toàn bộ batch của các đỉnh trong đồ thị.
+                Quá trình chuẩn hóa được áp dụng trên các đặc trưng của từng đỉnh trong đồ thị. Lớp này giúp cân bằng độ lớn của các đặc trưng của các 
+                đỉnh trong một batch dữ liệu đồ thị. Quá trình chuẩn hóa giúp cho việc huấn luyện mô hình ổn định hơn bằng cách làm giảm hiện tượng 
+                biến động quá mức (covariate shift) trong quá trình lan truyền ngược.
+        """
         relu_conv = lambda insize, outsize, dp, act: Seq([
             GCNConv(insize, outsize),
             GraphNorm(outsize),
@@ -140,27 +85,55 @@ class LocalWLNet(nn.Module):
         self.max_x = max_x
         self.use_node_feat = use_node_feat
         self.node_feat = node_feat
+
+        """
+            Quá trình đồ thị học các đặc trưng của đỉnh:
+                Nếu use_node_feat là True: Mô hình sẽ sử dụng các đặc trưng của đỉnh (node features).
+                Nếu use_node_feat là False: Mô hình sẽ sử dụng một lớp nhúng (embedding layer) để biểu diễn các đỉnh.
+        """
         if use_node_feat:
             self.lin1 = nn.Sequential(
                 nn.Dropout(dp_lin0),
                 relu_lin(node_feat.shape[-1], channels_1wl, dp_lin1, True, False)
             )
         else:
+            """
+                self.emb: Là một lớp tuần tự (Sequential) bao gồm:
+                nn.Embedding(max_x + 1, channels_1wl): Là lớp nhúng (embedding layer) với số lượng đỉnh tối đa max_x + 1 và 
+                    số chiều đặc trưng channels_1wl.
+                GraphNorm(channels_1wl): Là lớp chuẩn hóa đồ thị để chuẩn hóa các đặc trưng của đỉnh.
+                Dropout(p=dp_emb, inplace=True): Là lớp dropout áp dụng cho đầu ra của lớp nhúng.
+            """
             self.emb = nn.Sequential(nn.Embedding(max_x + 1, channels_1wl),
                                      GraphNorm(channels_1wl),
                                      Dropout(p=dp_emb, inplace=True))
-
+        """
+            Khởi tạo một danh sách các moudle chức các lớp relu_conv
+            channels_1wl và channels_2wl là các số chiều đầu vào và đầu ra của các lớp relu_conv
+        """
         self.conv1s = nn.ModuleList(
             [relu_conv(channels_1wl, channels_1wl, dp_1wl0, act0) for _ in range(depth1 - 1)] +
             [relu_conv(channels_1wl, channels_2wl, dp_1wl1, act1)])
 
         self.conv2s = nn.ModuleList(
             [relu_conv(channels_2wl, channels_2wl, dp_2wl, True) for _ in range(depth2)])
+
         self.conv2s_r = nn.ModuleList(
             [relu_conv(channels_2wl, channels_2wl, dp_2wl, True) for _ in range(depth2)])
+        """
+            Xây dựng một lớp linear có vai trò biến đổi đầu vào với số chiều channels_2wl thành đầu ra với số chiều là 1. 
+            Sau đó kq này được đưa vào hàm sigmoid() trong file train.train để đưa ra kq cuối cùng cho bài toán 
+        """
         self.pred = nn.Linear(channels_2wl, 1)
 
-    def forward(self, x, edge1, pos, idx = None, ei2 = None, test = False):
+    def forward(self, x, edge1, pos, idx=None, ei2=None, test=False):
+        """
+            :x = x_new
+            :edge1 = ei_new
+            :pos = dataset.pos1
+            :idx = pos2
+            :ei2 = ei2_new
+        """
         edge2, edge2_r = reverse(ei2)
 
         x = self.lin1(self.node_feat) if self.use_node_feat else self.emb(x).squeeze()
@@ -178,522 +151,6 @@ class LocalWLNet(nn.Module):
         x = self.pred(x)
         return x
 
-class FWLNet(nn.Module):
-    def __init__(self,
-                 max_x,
-                 use_feat=False,
-                 feat=None,
-                 hidden_dim_1=20,
-                 hidden_dim_2=20,
-                 layer1=2,
-                 layer2=1,
-                 dp1=0.0,
-                 dp2=0.0,
-                 dp3=0.0,
-                 mul_pool=True,
-                 use_ea=False,
-                 easize=None,
-                 act = True):
-        super(FWLNet, self).__init__()
-        self.mul_pool = mul_pool
-        self.use_ea = use_ea
-        self.use_feat = use_feat
-        self.layer1 = layer1
-        self.layer2 = layer2
-        input_node_size = hidden_dim_1
-        if use_feat:
-            input_node_size += feat.shape[1]
-            self.feat = nn.parameter.Parameter(feat, requires_grad=False)
-
-        self.embedding = nn.Sequential(nn.Embedding(max_x + 1, hidden_dim_1),
-                                       nn.Dropout(p=dp1))
-        relu_sage = lambda a, b, dp: Seq([
-            GCNConv(a, b),
-            GraphNorm(b),
-            nn.Dropout(dp, inplace=True),
-            nn.ReLU(inplace=True)
-        ])
-        relu_sage_end = lambda a, b, dp: Seq([
-            GCNConv(a, b),
-            GraphNorm(b),
-            nn.Dropout(dp, inplace=True)
-        ])
-        if not act:
-            self.nconvs = nn.ModuleList(
-                [relu_sage_end(input_node_size, hidden_dim_1, dp2)] + [
-                    relu_sage_end(hidden_dim_1, hidden_dim_1, 0)
-                    for i in range(layer1 - 1)
-                ])
-        else:
-            self.nconvs = nn.ModuleList(
-                [relu_sage(input_node_size, hidden_dim_1, dp2)] + [
-                    relu_sage(hidden_dim_1, hidden_dim_1, dp2)
-                    for i in range(layer1 - 1)
-                ])
-
-        input_edge_size = hidden_dim_1
-        if use_ea:
-            input_edge_size += easize.shape[1]
-
-        relu_lin = lambda a, b, dp: nn.Sequential(
-            nn.Linear(a, b), nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True))
-        self.mlps_1 = nn.ModuleList(
-            [relu_lin(input_edge_size + 1, hidden_dim_2, dp3)] + [
-                relu_lin(hidden_dim_2, hidden_dim_2, dp3)
-                for i in range(layer2 - 1)
-            ])
-        self.mlps_2 = nn.ModuleList(
-            [relu_lin(input_edge_size + 1, hidden_dim_2, dp3)] + [
-                relu_lin(hidden_dim_2, hidden_dim_2, dp3)
-                for i in range(layer2 - 1)
-            ])
-        relu_norm_lin = lambda a, b, dp: nn.Sequential(
-            nn.Linear(a, b), GraphNorm(b), nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True))
-        self.mlps_3 = nn.ModuleList(
-            [relu_norm_lin(hidden_dim_2 + input_edge_size + 1, hidden_dim_2, dp3)] +
-            [
-                relu_norm_lin(hidden_dim_2 * 2, hidden_dim_2, dp3)
-                for i in range(layer2 - 1)
-            ])
-
-        self.lin_dir = nn.Linear(hidden_dim_2, 1)
-
-    def forward(self, x, ei, pos, ei2=None, test=False):
-        edge_index = ei
-        x = self.embedding(x)
-        if self.use_feat:
-            x = torch.cat((x, self.feat), dim=1)
-        n = x.shape[0]
-        for i in range(self.layer1):
-            x = self.nconvs[i](x, edge_index)
-        colx = x.unsqueeze(0).expand(n, -1, -1).reshape(n * n, -1)
-        rowx = x.unsqueeze(1).expand(-1, n, -1).reshape(n * n, -1)
-        x = rowx * colx
-        if self.use_ea:
-            print("ERROR")
-            exit(0)
-
-        eim = torch.zeros((n*n,), device = x.device)
-        eim[ei[0] * n + ei[1]] = 1
-        eim = eim.reshape(n, n)
-        add_chan = torch.eye(n, device = x.device)
-
-        x = x.reshape(n, n, -1)
-        for i in range(1):
-            add_chan = torch.mm(add_chan, eim)
-            x = torch.cat((x, add_chan.reshape(n, n, -1)), dim=-1)
-        #x = localize(x, ei)
-        '''
-        nl = torch.eye(n, device=x.device).unsqueeze(-1)
-        x = torch.cat((x, nl), dim=-1)
-        '''
-        for i in range(self.layer2):
-            #xx = deepcopy(x)
-            x1 = self.mlps_1[i](x).permute(2, 0, 1)
-            x2 = self.mlps_2[i](x).permute(2, 0, 1)
-            x = torch.cat([x, (x1 @ x2).permute(1, 2, 0)], -1)
-            x = self.mlps_3[i](x)
-        x = (x * x.permute(1, 0, 2)).reshape(n * n, -1) if self.mul_pool else (x + x.permute(1, 0, 2)).reshape(n * n, -1)
-        x = x[pos[:, 0] * n + pos[:, 1]]
-        x = self.lin_dir(x)
-        return x
-
-class LocalFWLNet(nn.Module):
-    def __init__(self,
-                 max_x,
-                 use_feat=False,
-                 feat=None,
-                 use_degree=True,
-                 use_appnp=False,
-                 reduce_feat=False,
-                 sum_pooling=False,
-                 hidden_dim_1wl=20,
-                 hidden_dim_2wl=20,
-                 layer1=2,
-                 layer2=1,
-                 layer3=1,
-                 dp_emb=0.0,
-                 dp_lin0=0.0,
-                 dp_lin1=0.0,
-                 dp_1wl=0.0,
-                 dp_2wl0=0.0,
-                 dp_2wl1=0.0,
-                 alpha=0.1,
-                 ln_lin=False,
-                 ln_1wl=False,
-                 ln_2wl0=False,
-                 ln_2wl1=False,
-                 gn_1wl=True,
-                 gn_2wl1=True,
-                 act_lin=False,
-                 act_1wl=True,
-                 act_2wl0=True,
-                 act_2wl1=True,
-                 fast_bsmm = False,
-                 use_ea=False,
-                 easize=None):
-        super(LocalFWLNet, self).__init__()
-        assert use_feat or use_degree
-        self.use_ea = use_ea
-        self.max_x = max_x
-        self.use_feat = use_feat
-        self.use_degree = use_degree
-        self.use_appnp = use_appnp
-        self.layer1 = layer1
-        self.layer2 = layer2
-        self.layer3 = layer3
-        self.fast = fast_bsmm
-        self.sum_pooling = sum_pooling
-        relu_sage = lambda a, b, dp, lnx, gnx, actx: Seq([
-            GCNConv(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine) if lnx else nn.Identity(),
-            GraphNorm(b) if gnx else nn.Identity(),
-            nn.Dropout(dp, inplace=True),
-            nn.ReLU(inplace=True) if actx else nn.Identity()
-        ])
-        relu_lin = lambda a, b, dp, lnx, gnx, actx: nn.Sequential(
-            nn.Linear(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine) if lnx else nn.Identity(),
-            GraphNorm(b) if gnx else nn.Identity(),
-            nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True) if actx else nn.Identity())
-        use_affine = False
-        input_node_size = hidden_dim_1wl if use_degree else 0
-        if use_feat:
-            input_node_size += feat.shape[1]
-            self.feat = nn.parameter.Parameter(feat, requires_grad=False)
-        self.embedding = nn.Sequential(
-            nn.Embedding(max_x + 1, hidden_dim_1wl),
-            nn.Dropout(p=dp_emb))
-        if not use_appnp:
-            self.nconvs = nn.ModuleList(
-                [relu_sage(input_node_size, hidden_dim_1wl, dp_1wl, ln_1wl, gn_1wl, act_1wl)] + [
-                    relu_sage(hidden_dim_1wl, hidden_dim_1wl, dp_1wl, ln_1wl, gn_1wl, act_1wl)
-                    for _ in range(layer1 - 1)
-                ])
-        else:
-            self.nconvs = APPNP(layer1, alpha)
-        if reduce_feat:
-            assert self.use_feat
-            self.lin1 = nn.Sequential(
-                nn.Dropout(dp_lin0),
-                relu_lin(input_node_size, hidden_dim_1wl, dp_lin1, ln_lin, False, act_lin)
-            )
-        else:
-            self.lin1 = nn.Identity()
-        input_edge_size = hidden_dim_1wl
-
-        self.mlps_1 = relu_lin(input_edge_size * 2, hidden_dim_2wl, dp_2wl0, ln_2wl0, False, act_2wl0)
-        self.mlps_2 = nn.ModuleList(
-            [relu_lin(input_edge_size * 2, hidden_dim_2wl, dp_2wl0, ln_2wl0, False, act_2wl0)] + [
-             relu_lin(input_edge_size * 2, hidden_dim_2wl, dp_2wl0, ln_2wl0, False, act_2wl0)
-             for _ in range(layer2 - 1)
-            ])
-        self.mlps_3 = nn.ModuleList(
-            [relu_lin(hidden_dim_2wl + 1, hidden_dim_2wl, dp_2wl1, ln_2wl1, gn_2wl1, act_2wl1)
-             for _ in range(layer3)
-            ])
-        if not sum_pooling:
-            self.lin_dir = nn.Linear(hidden_dim_1wl + hidden_dim_2wl, 1)
-
-    def forward(self, x, ei, pos, ei2=None, test=False):
-        t0 = time.time()
-        edge_index = ei
-        #pos = pos1[pos2][:, 0].reshape(-1, 2)
-        n = x.shape[0]
-
-        x = self.embedding(x)
-        t1 = time.time()
-        if self.use_feat:
-            x = torch.cat((x, self.feat), dim=1)
-            if not self.use_degree:
-                x = self.feat
-        x = self.lin1(x)
-        if not self.use_appnp:
-            for i in range(self.layer1):
-                x = self.nconvs[i](x, edge_index)
-        else:
-            x = self.nconvs(x, edge_index)
-        t2 = time.time()
-        xx = x[pos[:, 0]] * x[pos[:, 1]]
-
-        val = torch.cat([x[edge_index[0]], x[edge_index[1]]], 1)#colx = x.unsqueeze(0).expand(n, -1, -1).reshape(n * n, -1)
-
-        x = val.clone()
-        t3 = time.time()
-        x = self.mlps_1(x)
-        current_edges = edge_index
-
-        for i in range(self.layer3):
-            if i < self.layer2:
-                mul = self.mlps_2[i](val)
-            x = sparse_bmm(current_edges, x, edge_index, mul, n, fast=self.fast)
-            current_edges, value = sparse_cat(x, edge_index, torch.ones((edge_index.shape[1], 1), device=x.device))
-            x = self.mlps_3[i](value)
-        t4 = time.time()
-        #pdb.set_trace()
-        sm = torch.sparse.FloatTensor(torch.cat([current_edges[1].unsqueeze(0), current_edges[0].unsqueeze(0)], 0), x,
-                                      torch.Size([n, n, x.shape[-1]])).coalesce().values()
-        t5 = time.time()
-        #pdb.set_trace()
-        x = x * sm
-        t6 = time.time()
-        #pdb.set_trace()
-        x = add_zero(x, pos.t().cpu().numpy(), current_edges)
-        t7 = time.time()
-        #pdb.set_trace()
-
-        pred_list = edge_list(current_edges, pos.t(), n)
-        t8 = time.time()
-        #pdb.set_trace()
-        x = x[pred_list]
-        x = torch.cat([x, xx], 1)
-        x = self.lin_dir(x) if not self.sum_pooling else torch.sum(x, dim=-1, keepdim=True)
-        #t6 = time.time()
-        #print(t1 - t0)
-        #print(t2 - t1)
-        #print(t3 - t2)
-        #print(t4 - t3)
-        #print(t5 - t4)
-        #print(t6 - t5)
-        #print(t7 - t6)
-        #print(t8 - t7)
-        return x
-
-class Net_cora(nn.Module):
-
-    def __init__(self,
-                 max_x,
-                 use_feat=False,
-                 feat=None,
-                 hidden_dim_1wl=20,
-                 hidden_dim_2wl=20,
-                 layer1=2,
-                 layer2=1,
-                 dp1=0.0,
-                 dp2=0.0,
-                 dp3=0.0,
-                 fast_bsmm=False,
-                 use_ea=False,
-                 ln0=False,
-                 ln1=False,
-                 ln2=False,
-                 ln3=False,
-                 act1=False,
-                 act2=False,
-                 act3=False,
-                 easize=None):
-        super(Net_cora, self).__init__()
-        self.use_ea = use_ea
-        self.max_x = max_x
-        self.use_feat = use_feat
-        self.layer1 = layer1
-        self.layer2 = layer2
-        self.fast = fast_bsmm
-        input_node_size = hidden_dim_1wl
-        if use_feat:
-            input_node_size += feat.shape[1]
-            self.feat = nn.parameter.Parameter(feat, requires_grad=False)
-        use_affine = False
-        self.embedding = nn.Sequential(
-            nn.Embedding(max_x + 1, hidden_dim_1wl),
-            nn.LayerNorm(hidden_dim_1wl, elementwise_affine=use_affine)
-            if ln0 else nn.Identity(), nn.Dropout(p=dp1))
-        relu_sage = lambda a, b, dp: Seq([
-            GCNConv(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine)
-            if ln1 else nn.Identity(),
-            nn.Dropout(dp, inplace=True),
-            nn.ReLU(inplace=True) if act1 else nn.Identity(),
-        ])
-        self.nconvs = nn.ModuleList(
-            [relu_sage(feat.shape[1], hidden_dim_1wl, dp2)] + [
-                relu_sage(hidden_dim_1wl, hidden_dim_1wl, dp2)
-                for i in range(layer1 - 1)
-            ])
-        input_edge_size = hidden_dim_1wl
-        if use_ea:
-            input_edge_size += easize.shape[1]
-        relu_lin = lambda a, b, dp: nn.Sequential(
-            nn.Linear(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine)
-            if ln2 else nn.Identity(), nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True) if act2 else nn.Identity())
-        self.mlps_1 = relu_lin(input_edge_size * 2, hidden_dim_2wl, dp3)
-        self.mlps_2 = nn.ModuleList(
-            [relu_lin(input_edge_size * 2, hidden_dim_2wl, dp3)] + [
-                relu_lin(input_edge_size * 2, hidden_dim_2wl, dp3)
-                for i in range(layer2 - 1)
-            ])
-        relu_norm_lin = lambda a, b, dp: nn.Sequential(
-            nn.Linear(a, b),
-            nn.LayerNorm(b, elementwise_affine=use_affine)
-            if ln3 else nn.Identity(), nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True) if act3 else nn.Identity())
-        self.mlps_3 = nn.ModuleList([
-            relu_norm_lin(hidden_dim_2wl + 1, hidden_dim_2wl, dp3)
-            for _ in range(layer2)
-        ])
-        self.lin_dir = nn.Linear(hidden_dim_1wl + hidden_dim_2wl, 1)
-
-    def forward(self, x, ei, pos1, pos2, ei2=None, test=False):
-        edge_index = ei
-        pos = pos1[pos2][:, 0].reshape(-1, 2)
-
-        x = self.feat
-        n = x.shape[0]
-        for i in range(self.layer1):
-            x = self.nconvs[i](x, edge_index)
-        xx = x[pos[:, 0]] * x[pos[:, 1]]
-
-        val = torch.cat(
-            [x[edge_index[0]], x[edge_index[1]]],
-            1)  #colx = x.unsqueeze(0).expand(n, -1, -1).reshape(n * n, -1)
-
-        if self.use_ea:
-            val = torch.cat([val, ea], 0)
-
-        x = val.clone()
-        x = self.mlps_1(x)
-        current_edges = edge_index
-
-        for i in range(self.layer2):
-            #xx = deepcopy(x)
-            mul = self.mlps_2[i](val)
-            x = sparse_bmm(current_edges,
-                           x,
-                           edge_index,
-                           mul,
-                           n,
-                           fast=self.fast)
-            current_edges, value = sparse_cat(
-                x, edge_index,
-                torch.ones((edge_index.shape[1], 1), device=x.device))
-            x = self.mlps_3[i](value)
-        sm = torch.sparse.FloatTensor(
-            torch.cat(
-                [current_edges[1].unsqueeze(0), current_edges[0].unsqueeze(0)],
-                0), x, torch.Size([n, n, x.shape[-1]])).coalesce().values()
-        x = x * sm
-        x = add_zero(x, pos.t().cpu().numpy(), current_edges)
-
-        pred_list = edge_list(current_edges, pos.t(), n)
-
-        x = x[pred_list]
-        x = torch.cat([x, xx], 1)
-
-        x = self.lin_dir(x)
-        return x
-
-class Net(nn.Module):
-    def __init__(self,
-                 max_x,
-                 use_feat=False,
-                 feat=None,
-                 hidden_dim_1wl=20,
-                 hidden_dim_2wl=20,
-                 layer1=2,
-                 layer2=1,
-                 dp_emb=0.0,
-                 dp_1wl=0.0,
-                 dp_2wl=0.0,
-                 fast_bsmm = False,
-                 use_ea=False,
-                 easize=None):
-        super(Net, self).__init__()
-        self.use_ea = use_ea
-        self.max_x = max_x
-        self.use_feat = use_feat
-        self.layer1 = layer1
-        self.layer2 = layer2
-        self.fast = fast_bsmm
-        input_node_size = hidden_dim_1wl
-        if use_feat:
-            input_node_size += feat.shape[1]
-            self.feat = nn.parameter.Parameter(feat, requires_grad=False)
-
-        self.embedding = nn.Sequential(nn.Embedding(max_x + 1, hidden_dim_1wl),
-                                       nn.Dropout(p=dp_emb))
-        relu_sage = lambda a, b, dp: Seq([
-            GCNConv(a, b),
-            GraphNorm(b),
-            nn.Dropout(dp, inplace=True),
-            nn.ReLU(inplace=True)
-        ])
-        self.nconvs = nn.ModuleList(
-            [relu_sage(input_node_size, hidden_dim_1wl, dp_1wl)] + [
-                relu_sage(hidden_dim_1wl, hidden_dim_1wl, dp_1wl)
-                for i in range(layer1 - 1)
-            ])
-
-        input_edge_size = hidden_dim_1wl
-        if use_ea:
-            input_edge_size += easize.shape[1]
-
-        relu_lin = lambda a, b, dp: nn.Sequential(
-            nn.Linear(a, b), nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True))
-        self.mlps_1 = relu_lin(input_edge_size * 2, hidden_dim_2wl, dp_2wl)
-        self.mlps_2 = nn.ModuleList(
-            [relu_lin(input_edge_size * 2, hidden_dim_2wl, dp_2wl)] + [
-                relu_lin(input_edge_size * 2, hidden_dim_2wl, dp_2wl)
-                for i in range(layer2 - 1)
-            ])
-        relu_norm_lin = lambda a, b, dp: nn.Sequential(
-            nn.Linear(a, b), GraphNorm(b), nn.Dropout(p=dp, inplace=True),
-            nn.ReLU(inplace=True))
-        self.mlps_3 = nn.ModuleList(
-            [
-                relu_norm_lin(hidden_dim_2wl + 1, hidden_dim_2wl, dp_2wl)
-                for _ in range(layer2)
-            ])
-
-        self.lin_dir = nn.Linear(hidden_dim_1wl + hidden_dim_2wl, 1)
-
-    def forward(self, x, ei, pos1, pos2, ei2=None, test=False):
-        #import pdb
-        #pdb.set_trace()
-        t0 = time.time()
-        edge_index = ei
-        pos = pos1[pos2][:, 0].reshape(-1, 2)
-
-        x = self.embedding(x)
-
-        if self.use_feat:
-            x = torch.cat((x, self.feat), dim=1)
-        n = x.shape[0]
-        for i in range(self.layer1):
-            x = self.nconvs[i](x, edge_index)
-        xx = x[pos[:, 0]] * x[pos[:, 1]]
-
-        val = torch.cat([x[edge_index[0]], x[edge_index[1]]], 1)#colx = x.unsqueeze(0).expand(n, -1, -1).reshape(n * n, -1)
-
-        if self.use_ea:
-            val = torch.cat([val, ea], 0)
-
-        x = val.clone()
-        x = self.mlps_1(x)
-        current_edges = edge_index
-
-        for i in range(self.layer2):
-            mul = self.mlps_2[i](val)
-            x = sparse_bmm(current_edges, x, edge_index, mul, n, fast=self.fast)
-            current_edges, value = sparse_cat(x, edge_index, torch.ones((edge_index.shape[1], 1), device=x.device))
-            x = self.mlps_3[i](value)
-        sm = torch.sparse.FloatTensor(torch.cat([current_edges[1].unsqueeze(0), current_edges[0].unsqueeze(0)], 0), x,
-                                      torch.Size([n, n, x.shape[-1]])).coalesce().values()
-
-        x = x * sm
-        x = add_zero(x, pos.t().cpu().numpy(), current_edges)
-
-        pred_list = edge_list(current_edges, pos.t(), n)
-        x = x[pred_list]
-        x = torch.cat([x, xx], 1)
-
-        x = self.lin_dir(x)
-        return x
 
 class Seq(nn.Module):
     def __init__(self, modlist):
@@ -706,13 +163,14 @@ class Seq(nn.Module):
             out = self.modlist[i](out)
         return out
 
+
 def mataggr(A, h, g):
     '''
     A (n, n, d). n is number of node, d is latent dimension
     h, g are mlp
     '''
     B = h(A)
-    #C = f(A)
+    # C = f(A)
     n, d = A.shape[0], A.shape[1]
     vec_p = (torch.sum(B, dim=1, keepdim=True)).expand(-1, n, -1)
     vec_q = (torch.sum(B, dim=0, keepdim=True)).expand(n, -1, -1)
