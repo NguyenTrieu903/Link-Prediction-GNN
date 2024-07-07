@@ -1,12 +1,10 @@
-import streamlit as st
-from LogisticRegression_Linkprediction.data.understanding_data import create_graph, plot_graph
-from LogisticRegression_Linkprediction.model.link_prediction import link_prediction_with_logistic, read_the_results_logistic
+import argparse
+import warnings
+
+from LogisticRegression_Linkprediction.model.link_prediction import link_prediction_with_logistic, \
+    read_the_results_logistic
 from SEAL.operators.seal_link_predict import execute, read_the_results_seal
 from TwoWL import TwoWL_work
-import warnings
-import matplotlib.pyplot as plt
-from constant import *
-import argparse
 from assets.theme import *
 
 warnings.filterwarnings("ignore")
@@ -20,7 +18,7 @@ def link_prediction_menu(model_option, train):
             link_prediction_with_logistic()
         else:
             display_picture('roc_curve_logistic.png', 'Roc auc score with logistic regression')
-            auc_value , time = read_the_results_logistic()
+            auc_value, time = read_the_results_logistic()
             st.write("### Logistic model runtime: ", time)
     elif model_option == "SEAL":
         if train:
@@ -37,24 +35,25 @@ def link_prediction_menu(model_option, train):
                 f.write("")
             with open(PATH_TIME_TWOWL + 'time_twowl.txt', 'w') as f:
                 f.write("")
-            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=1000, seed=0, device="cpu", path="Opt/", test=False, check=False)
-            TwoWL_work.work(args, args.device) 
+            args = argparse.Namespace(model="TwoWL", dataset="fb-pages-food", pattern="2wl_l", epoch=1000, seed=0,
+                                      device="cpu", path="Opt/", test=False, check=False)
+            TwoWL_work.work(args, args.device)
             logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
-            plot_auc_with_twowl(roc=best_auc_twowl, name = 'roc_curve_twowl')
+            plot_auc_with_twowl(roc=best_auc_twowl, name='roc_curve_twowl')
             st.write("#### Time consumption: ", average_time)
-            #st.write("#### The best parameters of the model are: ", logs)
+            # st.write("#### The best parameters of the model are: ", logs)
         else:
             logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
             display_picture('roc_curve_twowl.png', 'Roc auc score with twowl')
             st.write("#### Time consumption: ", average_time)
-            #st.write("#### The best parameters of the model are: ", logs)
-        
+            # st.write("#### The best parameters of the model are: ", logs)
+
     elif model_option == "Compare":
         # Lấy giá trị AUC của SEAL
-        results_seal, time_value= read_the_results_seal()
+        results_seal, time_value = read_the_results_seal()
         # Lấy giá trị AUC lớn nhất của mô hình TwoWL
         logs, best_auc_twowl, average_time = TwoWL_work.read_results_twowl()
-        
+
         # Lấy giá trị AUC của Logistic
         results_logistic, time_logistic = read_the_results_logistic()
 
@@ -71,17 +70,16 @@ def link_prediction_menu(model_option, train):
         st.pyplot(fig)
 
 
-
 def main():
     selected_tab = st.sidebar.radio("**Option**", ["Logistic", "SEAL", "TwoWL", "Compare"])
-    train = st.sidebar.checkbox("**TRAIN**")  #run train ?
-    # train = False
+    # train = st.sidebar.checkbox("**TRAIN**")  #run train ?
+    train = False
     submitted = st.sidebar.button("**RUN**", type="primary")
     if submitted:
         link_prediction_menu(selected_tab, train)
     else:
         display_picture('review_gnn.png', 'Graph Neural Networks - An overview')
-        
+
 
 if __name__ == "__main__":
     set_custom_theme("LINK PREDICTION")

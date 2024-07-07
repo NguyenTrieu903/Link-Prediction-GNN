@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 
+
 def split_train_test(D_inverse, A_tilde, X, Y, nodes_size_list, rate=0.1):
     # xao tron du lieu truoc khi chia thanh 2 tap train va test
     print("split training and test data...")
@@ -20,13 +21,15 @@ def split_train_test(D_inverse, A_tilde, X, Y, nodes_size_list, rate=0.1):
     A_tilde_train, A_tilde_test = A_tilde[: training_set_size], A_tilde[training_set_size:]
     X_train, X_test = X[: training_set_size], X[training_set_size:]
     Y_train, Y_test = Y[: training_set_size], Y[training_set_size:]
-    nodes_size_list_train, nodes_size_list_test = nodes_size_list[: training_set_size], nodes_size_list[training_set_size:]
+    nodes_size_list_train, nodes_size_list_test = nodes_size_list[: training_set_size], nodes_size_list[
+                                                                                        training_set_size:]
     print("about train: positive examples(%d): %s, negative examples: %s."
           % (training_set_size, np.sum(Y_train == 1), np.sum(Y_train == 0)))
     print("about test: positive examples(%d): %s, negative examples: %s."
           % (test_set_size, np.sum(Y_test == 1), np.sum(Y_test == 0)))
     return D_inverse_train, D_inverse_test, A_tilde_train, A_tilde_test, X_train, X_test, Y_train, Y_test, \
-           nodes_size_list_train, nodes_size_list_test
+        nodes_size_list_train, nodes_size_list_test
+
 
 # Ham dung de gan nhan cho cac nut trong do thi dua tren mot thuat toan goi la node labeling
 def node_labeling(graph_adj, network_type):

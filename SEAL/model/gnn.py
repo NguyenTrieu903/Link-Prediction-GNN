@@ -1,15 +1,12 @@
-import numpy as np
-import tensorflow as tf
-from tqdm import tqdm
-import streamlit as st
 import time
 
+import numpy as np
+import streamlit as st
+import tensorflow as tf
+from tqdm import tqdm
 
 import constant
 from SEAL.utils import modelGCN
-
-# import modelGCN
-
 
 GRAPH_CONV_LAYER_CHANNEL = 32
 CONV1D_1_OUTPUT = 16
@@ -32,10 +29,17 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
 
     # trainable parameters of graph convolution layer
     # tao cac bien co ten la graph_weight_1 voi cac gia tri ngau nhien cu the.Duoc su dung trong qua trinh khoi tao cac trong so cua mang no-ron 
-    graph_weight_1 = tf.Variable(tf.truncated_normal(shape=[initial_channels, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32), name="graph_weight_1")
-    graph_weight_2 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32), name="graph_weight_2")
-    graph_weight_3 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32), name="graph_weight_3")
-    graph_weight_4 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, 1], stddev=0.1, dtype=tf.float32), name="graph_weight_4")
+    graph_weight_1 = tf.Variable(
+        tf.truncated_normal(shape=[initial_channels, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32),
+        name="graph_weight_1")
+    graph_weight_2 = tf.Variable(
+        tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32),
+        name="graph_weight_2")
+    graph_weight_3 = tf.Variable(
+        tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], stddev=0.1, dtype=tf.float32),
+        name="graph_weight_3")
+    graph_weight_4 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, 1], stddev=0.1, dtype=tf.float32),
+                                 name="graph_weight_4")
 
     # GRAPH CONVOLUTION LAYER
     # thuc hien mot loat cac phep tinh ma tran de (nhu la 1 lop xu ly) trong mang no-ron.
@@ -82,26 +86,30 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
                                       lambda: tf.concat(axis=0,
                                                         values=[graph_conv_output_stored,
                                                                 tf.zeros(dtype=tf.float32,
-                                                                         shape=[threshold_k-node_size_pl,
-                                                                                GRAPH_CONV_LAYER_CHANNEL*3])]),
+                                                                         shape=[threshold_k - node_size_pl,
+                                                                                GRAPH_CONV_LAYER_CHANNEL * 3])]),
                                       lambda: tf.slice(graph_conv_output_stored, begin=[0, 0], size=[threshold_k, -1]))
 
     # FLATTEN LAYER
     # Su dung de bien doi tensor graph_conv_output_top_k thanh mot tensor graph_conv_output_flatten co hinh dang moi
-    graph_conv_output_flatten = tf.reshape(graph_conv_output_top_k, shape=[1, GRAPH_CONV_LAYER_CHANNEL*3*threshold_k, 1])
-    assert graph_conv_output_flatten.shape == [1, GRAPH_CONV_LAYER_CHANNEL*3*threshold_k, 1]
+    graph_conv_output_flatten = tf.reshape(graph_conv_output_top_k,
+                                           shape=[1, GRAPH_CONV_LAYER_CHANNEL * 3 * threshold_k, 1])
+    assert graph_conv_output_flatten.shape == [1, GRAPH_CONV_LAYER_CHANNEL * 3 * threshold_k, 1]
 
     # 1-D CONVOLUTION LAYER 1:
     # kernel = (filter_width, in_channel, out_channel)
     # Thuc hien phep tinh chap 1 chieu tren du lieu dau vao bang cach su dung bo lap conv1d_kernel_1
     # Tao mot bien conv1d_kernel_1 de luu tru bo loc cho phep tich chap mot chieu
-    conv1d_kernel_1 = tf.Variable(tf.truncated_normal(shape=[CONV1D_1_FILTER_WIDTH, 1, CONV1D_1_OUTPUT], stddev=0.1, dtype=tf.float32))
+    conv1d_kernel_1 = tf.Variable(
+        tf.truncated_normal(shape=[CONV1D_1_FILTER_WIDTH, 1, CONV1D_1_OUTPUT], stddev=0.1, dtype=tf.float32))
     # Su dung tf.nn.conv1d de thuc hien phep tich chap 1 chieu
     conv_1d_a = tf.nn.conv1d(graph_conv_output_flatten, conv1d_kernel_1, stride=CONV1D_1_FILTER_WIDTH, padding="VALID")
     assert conv_1d_a.shape == [1, threshold_k, CONV1D_1_OUTPUT]
 
     # 1-D CONVOLUTION LAYER 2:
-    conv1d_kernel_2 = tf.Variable(tf.truncated_normal(shape=[CONV1D_2_FILTER_WIDTH, CONV1D_1_OUTPUT, CONV1D_2_OUTPUT], stddev=0.1, dtype=tf.float32))
+    conv1d_kernel_2 = tf.Variable(
+        tf.truncated_normal(shape=[CONV1D_2_FILTER_WIDTH, CONV1D_1_OUTPUT, CONV1D_2_OUTPUT], stddev=0.1,
+                            dtype=tf.float32))
     conv_1d_b = tf.nn.conv1d(conv_1d_a, conv1d_kernel_2, stride=1, padding="VALID")
     assert conv_1d_b.shape == [1, threshold_k - CONV1D_2_FILTER_WIDTH + 1, CONV1D_2_OUTPUT]
     # Su dung de lam phang (flatten) dau ra cua mot lop convolutional 1D thanh mot vecto 
@@ -111,7 +119,8 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     # DENSE LAYER: Dung de tao ra mot lop ket noi day du (fully connected layer) trong mang noron.
     # Dung de tao ma tran trong so. Kich thuoc ma tran trong so la: [so luong dac trung dau vao, so do vi trong lop ket noi day du]
     # Tao lop neural network dau tien
-    weight_1 = tf.Variable(tf.truncated_normal(shape=[int(conv_output_flatten.shape[1]), DENSE_NODES], stddev=0.1), name="weight_1")
+    weight_1 = tf.Variable(tf.truncated_normal(shape=[int(conv_output_flatten.shape[1]), DENSE_NODES], stddev=0.1),
+                           name="weight_1")
     # Khoi tao bias cua lop ket noi day du. 
     bias_1 = tf.Variable(tf.zeros(shape=[DENSE_NODES]), name="bias_1")
     # Dung de thuc hien cac phep tinh de tao dau ra cua mot lop ket noi day du trong mang no-ron su dung ham kich hoat RELU
@@ -132,7 +141,8 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     global_step = tf.Variable(0, trainable=False)
     train_op = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step)
     # return D_inverse_pl, A_tilde_pl, X_pl, Y_pl, node_size_pl, is_train, pos_score, loss, global_step, pre_y
-    return modelGCN.model_GCN(D_inverse_pl, A_tilde_pl, X_pl, Y_pl, node_size_pl, is_train, pre_y, pos_score, train_op, global_step, loss)
+    return modelGCN.model_GCN(D_inverse_pl, A_tilde_pl, X_pl, Y_pl, node_size_pl, is_train, pre_y, pos_score, train_op,
+                              global_step, loss)
 
 
 def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_list_train, epoch):
@@ -146,7 +156,6 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
     train_op, global_step, loss = model.train_op, model.global_step, model.loss
 
     train_data_size = X_train.shape[0]
-
 
     progress_bar = st.progress(0)
     status_text = st.empty()
@@ -163,34 +172,34 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
             for _ in tqdm(range(train_data_size)):
                 batch_index = batch_index + 1 if batch_index < train_data_size - 1 else 0
                 feed_dict = {D_inverse_pl: D_inverse_train[batch_index],
-                                A_tilde_pl: A_tilde_train[batch_index],
-                                X_pl: X_train[batch_index],
-                                Y_pl: Y_train[batch_index],
-                                node_size_pl: nodes_size_list_train[batch_index],
-                                is_train: 1
-                                }
+                             A_tilde_pl: A_tilde_train[batch_index],
+                             X_pl: X_train[batch_index],
+                             Y_pl: Y_train[batch_index],
+                             node_size_pl: nodes_size_list_train[batch_index],
+                             is_train: 1
+                             }
                 loss_value, _, _ = sess.run([loss, train_op, global_step], feed_dict=feed_dict)
 
             train_acc = 0
             for i in tqdm(range(train_data_size)):
-                    feed_dict = {D_inverse_pl: D_inverse_train[i], A_tilde_pl: A_tilde_train[i],
-                                X_pl: X_train[i], Y_pl: Y_train[i], node_size_pl: nodes_size_list_train[i], is_train: 0}
-                    pre_y_value = sess.run(pre_y, feed_dict=feed_dict)
-                    if np.argmax(pre_y_value, 1) == Y_train[i]:
-                        train_acc += 1
-            train_acc = train_acc / train_data_size    
-            print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value)) 
+                feed_dict = {D_inverse_pl: D_inverse_train[i], A_tilde_pl: A_tilde_train[i],
+                             X_pl: X_train[i], Y_pl: Y_train[i], node_size_pl: nodes_size_list_train[i], is_train: 0}
+                pre_y_value = sess.run(pre_y, feed_dict=feed_dict)
+                if np.argmax(pre_y_value, 1) == Y_train[i]:
+                    train_acc += 1
+            train_acc = train_acc / train_data_size
+            print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value))
             status_text.text("%i%% Complete the training process" % ((epoch + 1) * 10))  # Hiển thị tiến độ
             new_rows = np.full((1, 1), train_acc)
             chart.add_rows(new_rows)
             progress_bar.progress((epoch + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
             time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
         progress_bar.empty()
-        saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
+        saver.save(sess, constant.MODEL_SAVE_PATH, global_step=1000)
 
 
 def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
-    #start_t = time.time()
+    # start_t = time.time()
     pre_y = model.pre_y
     Y_pl = model.Y_pl
     pos_score = model.pos_score
@@ -202,7 +211,7 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
         # load model
         sess.run(tf.global_variables_initializer())
         saver = tf.train.import_meta_graph(constant.MODEL_READ_PATH)
-        saver.restore(sess,tf.train.latest_checkpoint(constant.CHECKPOINT_MODEL))
+        saver.restore(sess, tf.train.latest_checkpoint(constant.CHECKPOINT_MODEL))
         graph = tf.get_default_graph()
 
         # get paramaters
@@ -222,19 +231,19 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
         graph_weight_4 = graph.get_tensor_by_name("graph_weight_4:0")
 
         weight_1_value, weight_2_value, bias_1_value, bias_2_value = sess.run([weight_1, weight_2, bias_1, bias_2])
-        graph_weight_1_value, graph_weight_2_value, graph_weight_3_value, graph_weight_4_value = sess.run([graph_weight_1, graph_weight_2, graph_weight_3, graph_weight_4])
-
+        graph_weight_1_value, graph_weight_2_value, graph_weight_3_value, graph_weight_4_value = sess.run(
+            [graph_weight_1, graph_weight_2, graph_weight_3, graph_weight_4])
 
         # Prediction all elements of train and test
         for i in range(test_data_size):
             feed_dict = {D_inverse_pl: D_inverse_test[i], A_tilde_pl: A_tilde_test[i],
-                             X_pl: X_test[i], Y_pl: Y_test[i], node_size_pl: nodes_size_list_test[i], is_train: 0}
+                         X_pl: X_test[i], Y_pl: Y_test[i], node_size_pl: nodes_size_list_test[i], is_train: 0}
             pre_y_value, pos_score_value = sess.run([pre_y, pos_score], feed_dict=feed_dict)
             prediction.append(np.argmax(pre_y_value, 1))
             scores.append(pos_score_value[0][1])
             if np.argmax(pre_y_value, 1) == Y_test[i]:
                 test_acc += 1
         test_acc = test_acc / test_data_size
-            #saver.save(sess, os.path.join(MODEL_SAVE_PATH, data_name, MODEL_SAVE_NAME), global_step)
-        
-    return  test_acc, prediction, scores
+        # saver.save(sess, os.path.join(MODEL_SAVE_PATH, data_name, MODEL_SAVE_NAME), global_step)
+
+    return test_acc, prediction, scores
