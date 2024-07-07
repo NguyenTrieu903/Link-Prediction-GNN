@@ -43,6 +43,7 @@ class LocalWLNet(nn.Module):
         self.max_x = max_x
         self.use_node_feat = use_node_feat
         self.node_feat = node_feat
+
         if use_node_feat:
             self.lin1 = nn.Sequential(
                 nn.Dropout(dp_lin0),
@@ -61,6 +62,7 @@ class LocalWLNet(nn.Module):
             [relu_conv(channels_2wl, channels_2wl, dp_2wl, True) for _ in range(depth2)])
         self.conv2s_r = nn.ModuleList(
             [relu_conv(channels_2wl, channels_2wl, dp_2wl, True) for _ in range(depth2)])
+
         self.pred = nn.Linear(channels_2wl, 1)
 
     def forward(self, x, edge1, pos, idx=None, ei2=None, test=False):

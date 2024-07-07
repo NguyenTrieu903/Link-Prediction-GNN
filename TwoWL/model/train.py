@@ -1,15 +1,16 @@
 import time
+
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
-from TwoWL.model.model import LocalWLNet
+
 from TwoWL.utils import sample_block, double
 from assets.theme import *
 
 
 def train(mod, opt, dataset, batch_size, i):
-    # print('dataset',dataset.__dict__)
     mod.train()
+
     global perm1, perm2, pos_batchsize, neg_batchsize
     if i == 0:
         pos_batchsize = batch_size // 2
@@ -20,19 +21,23 @@ def train(mod, opt, dataset, batch_size, i):
 
     idx1 = perm1[i * pos_batchsize:(i + 1) * pos_batchsize]
     idx2 = perm2[i * neg_batchsize:(i + 1) * neg_batchsize]
+
     y = torch.cat((torch.ones_like(idx1, dtype=torch.float),
                    torch.zeros_like(idx2, dtype=torch.float)),
                   dim=0).unsqueeze(-1)
 
     idx1 = double(idx1, for_index=True)
     idx2 = double(idx2, for_index=True) + dataset.ei.shape[1]
+
     ei_new, x_new, ei2_new = sample_block(idx1, dataset.x.shape[0], dataset.ei, dataset.ei2)
     pos2 = torch.cat((idx1, idx2), dim=0)
+
     opt.zero_grad()
     pred = mod(x_new, ei_new, dataset.pos1, pos2, ei2_new)
     loss = F.binary_cross_entropy_with_logits(pred, y)
     loss.backward()
     opt.step()
+
     with torch.no_grad():
         sig = pred.sigmoid().cpu().numpy()
         score = roc_auc_score(y.cpu().numpy(), sig)
@@ -45,14 +50,14 @@ def train(mod, opt, dataset, batch_size, i):
 @torch.no_grad()
 def test(mod, dataset, test=False):
     mod.eval()
-    if isinstance(mod, LocalWLNet):
-        pred = mod(
-            dataset.x,
-            dataset.ei,
-            dataset.pos1,
-            dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
-            dataset.ei2,
-            True)
+
+    pred = mod(
+        dataset.x,
+        dataset.ei,
+        dataset.pos1,
+        dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
+        dataset.ei2,
+        True)
     sig = pred.sigmoid().cpu()
     mask = torch.cat(
         [torch.ones([1, sig.shape[0]], dtype=bool), torch.zeros([1, sig.shape[0]], dtype=bool)]).t().reshape(
