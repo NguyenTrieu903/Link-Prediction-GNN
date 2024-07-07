@@ -5,7 +5,23 @@ from torch_geometric.nn import GCNConv, GraphNorm
 # from utils import reverse, sparse_bmm, sparse_cat, add_zero, edge_list
 from TwoWL.utils import *
 
+
 class LocalWLNet(nn.Module):
+    """
+        :max_x - Tham số này thường biểu thị chỉ số cao nhất của đỉnh trong đồ thị
+            Nó xác định kích thước của lớp nhúng nếu use_node_feat là False.
+
+        :use_node_feat - Cờ boolean cho biết liệu có sử dụng đặc trưng của đỉnh (True) hay không (False). Nếu là True,
+            mô hình sẽ sử dụng các đặc trưng hiện có của đỉnh (node_feat). Nếu là False, một lớp nhúng sẽ được sử dụng để biểu diễn các đỉnh.
+        :node_feat - Tham số này chứa các đặc trưng của các đỉnh. Đây là một tensor hoặc mảng chứa các đặc trưng cho mỗi đỉnh trong đồ thị.
+        :channels_1wl - Số kênh đầu ra cho lớp tích chập đồ thị đầu tiên (conv1s).
+        :channels_2wl - Số kênh đầu ra cho lớp tích chập đồ thị thứ hai (conv2s và conv2s_r).
+        :depth1 - Số lượng lớp trong tập hợp lớp tích chập đồ thị đầu tiên (conv1s).
+        :depth2 - Số lượng lớp trong tập hợp lớp tích chập đồ thị thứ hai (conv2s và conv2s_r).
+        :dp_lin0, dp_lin1, dp_emb, dp_1wl0, dp_1wl1, dp_2wl - Xác suất dropout cho các phần khác nhau của mô hình.
+            Dropout là một kỹ thuật regularization để ngăn chặn overfitting trong quá trình huấn luyện mạng nơ-ron.
+    """
+
     def __init__(self,
                  max_x,
                  use_node_feat,
@@ -133,31 +149,80 @@ class LocalWLNet(nn.Module):
             :pos = dataset.pos1
             :idx = pos2
             :ei2 = ei2_new
+            Hàm này dùng để thể hiện logic chuyển tiếp dữ liệu giữa các layer: Nhận vào là dữ liệu input ban đầu.
+                                                                        Dữ liệu sẽ đi lần lượt qua từng layer của model và trả về output của model.
+        """
+        """
+            Gọi hàm reverse(ei2) để tạo ra các biến thể của edge dựa vào tính chẵn/lẻ 
         """
         edge2, edge2_r = reverse(ei2)
-
+        """
+            embedding x:
+                Nếu use_node_feat bằng True thì embedding bằng cách gọi lin1, ngược lại gọi hàm emb 
+        """
         x = self.lin1(self.node_feat) if self.use_node_feat else self.emb(x).squeeze()
+        """
+            Gọi conv1s, truyền vào x và edge1. Trong đó:
+                :x - là ma trận đặc trưng của các nút, có kích thước [num_nodes, in_channels]
+                :edge1 - là danh sách các cạnh của đồ thị, để biết các nút nào được kết nối với nhau
+            Lớp GCNConv sử dụng thông tin này để tính toán các giá trị đặc trưng mới cho mỗi nút bằng cách tổng hợp thông tin từ các nút láng giềng.
+        """
         for conv1 in self.conv1s:
             x = conv1(x, edge1)
-
+        """
+            x[pos[:, 0]]: Lấy ra các đặc trưng của các nút đầu tiên trong mỗi cặp chỉ số trong pos.
+            x[pos[:, 1]]: Lấy ra các đặc trưng của các nút thứ hai trong mỗi cặp chỉ số trong pos.
+            Phép nhân * thực hiện phép nhân từng phần tử giữa các đặc trưng của các nút này.
+            => để tạo ra các đặc trưng tương tác giữa các cặp nút.
+        """
         x = x[pos[:, 0]] * x[pos[:, 1]]
+        """
+            Học biểu diễn đồ thị dựa trên quan hệ các cạnh và nút trong đồ thị 
+        """
         for i in range(len(self.conv2s)):
             x = self.conv2s[i](x, edge2) + self.conv2s_r[i](x, edge2_r)
+        """
+            Sắp xếp lại x sao cho các phần tử của x được sắp theo thứ tự của idx. Điều này có thể hữu ích khi bạn cần sắp xếp lại các nút trong đồ thị 
+            hoặc thay đổi thứ tự của các đặc trưng trong một mạng nơ-ron.
+        """
         x = x[idx]
+        """
+            Dùng để tạo ra một vector mask để lựa chọn một phần của tensor x dựa trên điều kiện cụ thể. 
+            Vector mask ở đây có dạng True/False xen kẽ với nhau, có chiều dài bằng với x 
+            Ex: [True, False, True, False, ....]
+        """
         mask = torch.cat(
             [torch.ones([1, x.shape[0] // 2], dtype=bool),
              torch.zeros([1, x.shape[0] // 2], dtype=bool)]).t().reshape(-1)
+        """
+            Lấy các giá trị tại mask = True trong x nhân với mask = False trong x 
+        """
         x = x[mask] * x[~mask]
+        """
+            Đưa x này vào hàm pred để dự đoán ra kết quả. Hàm này là hàm linear chỉ chuyển tiếp ra kq 1 chiều
+        """
         x = self.pred(x)
         return x
 
 
 class Seq(nn.Module):
+    """
+        Lớp này có mục đích chính là xây dựng một chuỗi các module trong mạng nơ-ron, cho phép ta xây dựng các kiến trúc mạng nơ-ron phức tạp
+            bằng cách nối các lớp mô-đun lại với nhau theo thứ tự.
+    """
+
     def __init__(self, modlist):
         super().__init__()
         self.modlist = nn.ModuleList(modlist)
 
     def forward(self, *args, **kwargs):
+        """
+            out = self.modlist[0](*args, **kwargs): Thực hiện truyền xuôi dữ liệu qua mô-đun đầu tiên trong modlist với các đối số args và kwargs.
+            Vòng lặp for i in range(1, len(self.modlist)): Lặp qua các mô-đun còn lại trong modlist.
+            out = self.modlist[i](out): Đối với mỗi mô-đun trong modlist, đầu ra của mô-đun trước đó (out) được sử dụng làm đầu vào cho
+                mô-đun hiện tại trong vòng lặp.
+            return out: Trả về đầu ra của mô-đun cuối cùng trong modlist, sau khi đã truyền qua tất cả các mô-đun trong chuỗi.
+        """
         out = self.modlist[0](*args, **kwargs)
         for i in range(1, len(self.modlist)):
             out = self.modlist[i](out)

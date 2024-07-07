@@ -115,7 +115,7 @@ class BaseGraph:
             split], self.pos1s[split], self.ys[split], self.ei2s[split]
 
     def setPosDegreeFeature(self):
-        self.x_backup = [
+        self.x = [
                       degree(self.edge_indexs[0], self.num_nodes) for i in range(0, 2)
                   ] + [
                       degree(self.edge_indexs[1], self.num_nodes) for i in range(2, 3)
@@ -201,11 +201,11 @@ def do_edge_split(data, val_ratio=0.05, test_ratio=0.1, neg_pool_max=False):
             num_nodes=data.num_nodes,
             num_neg_samples=data.train_pos_edge_index.shape[1])
 
-    print("data.train_pos_edge_index", data.train_pos_edge_index.shape)
     data.val_neg_edge_index = negative_sampling(
         torch.cat((edge_index, data.val_pos_edge_index), dim=-1),
         num_nodes=data.num_nodes,
         num_neg_samples=data.val_pos_edge_index.shape[1])
+
     data.test_neg_edge_index = negative_sampling(
         torch.cat(
             (edge_index, data.val_pos_edge_index, data.test_pos_edge_index),

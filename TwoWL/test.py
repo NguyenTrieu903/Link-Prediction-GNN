@@ -95,13 +95,42 @@ def reverse(edge_index):
     # return edge_index
     return edge, edge_r
 
+def mask ():
+    x = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+    # Tạo mask
+    mask = torch.cat(
+        [torch.ones([1, x.shape[0] // 2], dtype=bool),
+         torch.zeros([1, x.shape[0] // 2], dtype=bool)]
+    ).t().reshape(-1)
+
+    # Lọc các phần tử của x dựa trên mask
+    filtered_x = x[mask]
+    filtered_x_ne = x[~mask]
+    filtered_x = x[mask] * x[~mask]
+    print(filtered_x)
 if __name__ == '__main__':
-    res = get_ei2(5,
-                  torch.tensor([[0, 1, 2], [3, 4, 5]]),
-                  torch.tensor([[0, 3], [1, 2]])
-                  )
-    print(res)
-    edge_index = torch.tensor([[0, 1, 1, 2, 3, 4], [1,2,4,2,3,1]])
-    ed, edr = reverse(edge_index)
-    print("ed ",ed)
-    print("edr ", edr)
+    # res = get_ei2(5,
+    #               torch.tensor([[0, 1, 2], [3, 4, 5]]),
+    #               torch.tensor([[0, 3], [1, 2]])
+    #               )
+    # print(res)
+    # edge_index = torch.tensor([[0, 1, 1, 2, 3, 4], [1,2,4,2,3,1]])
+    # ed, edr = reverse(edge_index)
+    # print("ed ",ed)
+    # print("edr ", edr)
+    # mask()
+    # Tạo hai tensor ví dụ
+    tensor1 = torch.tensor([1, 2, 3])
+    tensor2 = torch.tensor([4, 5, 6])
+    x_1, x_2 = torch.randn(2, 5), torch.randn(2, 5)
+    print(x_1)
+    print(x_2)
+    # Xếp các tensor theo chiều 0
+    stacked_tensor = torch.stack([tensor1, tensor2], dim=0)
+
+    print(stacked_tensor.size())
+    # Output: tensor([[1, 2, 3],
+    #                 [4, 5, 6]])
+    a = torch.arange(4.)
+    print(torch.reshape((-1, 1)))

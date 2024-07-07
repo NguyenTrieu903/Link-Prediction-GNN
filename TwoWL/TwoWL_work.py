@@ -97,7 +97,6 @@ def work(args, device="cpu"):
         opt = Adam(mod.parameters(), lr=lr)
         return train.train_routine("fb-pages-food", mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
 
-    # valparam()
     study = optuna.create_study(direction='maximize')
     study.optimize(selparam, n_trials=10)  # Tối ưu hoá với 100 thử nghiệm
     best_params = study.best_params
@@ -127,6 +126,7 @@ def test(kwargs):
     else:
         use_node_attr = False
     mod = LocalWLNet(max_degree, use_node_attr, tst_ds.na, **kwargs).to(device)
+
     # load model
     state_dict = torch.load('model.pkl')
     model_state_dict = mod.state_dict()
@@ -173,5 +173,4 @@ if __name__ == "__main__":
     else:
         args.device = "cuda:" + str(args.device)
     work(args)
-    # load_model()
     # call_back_test()

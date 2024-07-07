@@ -29,6 +29,11 @@ def set_mul(a: Tensor, b: Tensor):
 
 @torch.jit.script
 def get_ei2(n_node: int, pos_edge, pred_edge):
+    """
+        được sử dụng để chuẩn bị dữ liệu đầu vào bằng cách xây dựng các tensor chứa các chỉ số cạnh và các đặc trưng tương ứng để huấn
+        luyện mô hình.
+        Sử dụng để biến đổi các cạnh thành các chỉ số có thể được sử dụng để huấn luyện và dự đoán.
+    """
     # Nối hai tensor pos_edge và pred_edge theo chiều cuối cùng (dim=-1).
     # Đây là tập hợp các cạnh bao gồm cả các cạnh thực tế (pos_edge) và các cạnh dự đoán (pred_edge).
     edge = torch.cat((pos_edge, pred_edge), dim=-1)  # pos.transpose(0, 1)
@@ -184,7 +189,16 @@ def sample_block(sample_idx, size, ei, ei2=None):
 
 def reverse(edge_index):
     """
-
+        Hàm này giúp tăng tính đa dạng cho dữ liệu huấn luyện.
+        Bằng cách thay đổi giá trị của các nút dựa trên tính chẵn lẻ,
+        ta có thể tạo ra các biến thể của cạnh và giúp mô hình học được nhiều đặc điểm hơn từ dữ liệu.
+        Hoặc có thể sử dụng để điều chỉnh giá trị các nút để tránh xung đột hoặc trùng lặp trong quá trình xử lý đồ thị. Điều này có thể giúp đảm bảo
+        rằng các giá trị nút là duy nhất hoặc tuân theo một số quy tắc nhất định.
+    """
+    """
+        edge được tạo bằng cách điều chỉnh giá trị của edge_index[0] với tem0
+        Điều này có nghĩa là nếu edge_index[0] là số lẻ, nó sẽ bị giảm đi 1, và nếu là số chẵn, nó sẽ tăng thêm 1
+        edge_r được tạo bằng cách tương tự với tem1
     """
     tem0 = 1 - (edge_index[0] > edge_index[0] // 2 * 2).to(torch.long) * 2
     tem1 = 1 - (edge_index[1] > edge_index[1] // 2 * 2).to(torch.long) * 2
@@ -235,10 +249,6 @@ def random_split_edges(data, val_ratio: float = 0.05,
     row, col = data.edge_index
     edge_attr = data.edge_attr
     data.edge_index = data.edge_attr = None
-    print("num_nodes", num_nodes)
-    print("row before", row)
-    print("col before", col)
-    print("edge_attr", edge_attr)
     # mask not necessary
     # Return upper triangular portion.
     # mask = row < col
@@ -277,14 +287,11 @@ def random_split_edges(data, val_ratio: float = 0.05,
     # Negative edges.
     # Tạo ra các một ma trận 2-D với giá trị là 1 và có số cột bằng num_nodes và số hàng bằng num_nodes
     neg_adj_mask = torch.ones(num_nodes, num_nodes, dtype=torch.uint8)
-    print("neg_adj_mask before", neg_adj_mask)
     # Sau khi tạo xong, dùng hàm triu() để lấy tất cả các phần tử nằm trên hoặc trên đường chéo chính của ma trận. diagonal=1, trả về các phần tử nằm
     # phía trên đường chéo chính của ma trận (từ đường chéo chính đi lên chứ khoogn phải nằm trên đường chéo chính )
     neg_adj_mask = neg_adj_mask.triu(diagonal=1)
-    print("neg_adj_mask after", neg_adj_mask)
     # Sau đó gán các giá trị có row và col trong ma trận này là 0. Nghĩa là chỗ nào số 0 là chỗ đó có liên kết
     neg_adj_mask[row, col] = 0
-    print("neg_adj_mask[row, col]", neg_adj_mask)
 
     # Dùng hàm nonzero để lấy ra các giá trị khác 0. Nghĩa là các cnahj này chưa được liên kết trước đó => negative edge
     # Tham số as_tuple=False đảm bảo rằng kết quả trả về là một tensor có hai cột,

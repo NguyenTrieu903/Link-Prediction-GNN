@@ -26,10 +26,6 @@ def train(mod, opt, dataset, batch_size, i):
     if i == 0:
         pos_batchsize = batch_size // 2
         neg_batchsize = batch_size // 2
-        print("dataset.ei.shape[1] ", dataset.ei.shape[1])
-        print("dataset.pos1.shape[0] ", dataset.pos1.shape[0])
-        print("dataset.pos1.shape ", dataset.pos1.size())
-        print("dataset.ei.shape ", dataset.ei.size())
 
         perm1 = torch.randperm(dataset.ei.shape[1] // 2, device=dataset.x.device)
         perm2 = torch.randperm((dataset.pos1.shape[0] - dataset.ei.shape[1]) // 2,
@@ -59,7 +55,6 @@ def train(mod, opt, dataset, batch_size, i):
     """
     idx1 = perm1[i * pos_batchsize:(i + 1) * pos_batchsize]
     idx2 = perm2[i * neg_batchsize:(i + 1) * neg_batchsize]
-
     """
         Dùng để tạo ra một tensor y chứa các nhãn (labels) cho các cạnh (edges) trong bài toán dự đoán liên kết (link prediction). 
         Cụ thể, tensor này kết hợp các nhãn dương (positive labels) và nhãn âm (negative labels) thành một tensor duy nhất và thêm một chiều mới 
@@ -149,7 +144,14 @@ def train(mod, opt, dataset, batch_size, i):
 
 @torch.no_grad()
 def test(mod, dataset, test=False):
+    """
+        mod.eval(), mô-đun mod sẽ chuyển sang chế độ đánh giá. Trong chế độ này, các lớp như Dropout hoặc BatchNorm sẽ hoạt động khác so với khi đang
+        huấn luyện. Chẳng hạn, Dropout sẽ bị tắt (không hoạt động) để đảm bảo tính ổn định và dự đoán chính xác hơn khi đánh giá mô hình.
+    """
     mod.eval()
+    """
+        Kết quả từ việc gọi mô hình 
+    """
     pred = mod(
         dataset.x,
         dataset.ei,
@@ -157,21 +159,36 @@ def test(mod, dataset, test=False):
         dataset.ei.shape[1] + torch.arange(dataset.y.shape[0], device=dataset.x.device),
         dataset.ei2,
         True)
-    print("pred size:", pred.size())
+    """
+        chuyển đổi pred thành các giá trị dự đoán xác suất bằng cách áp dụng hàm sigmoid và sau đó chuyển sang CPU
+    """
     sig = pred.sigmoid().cpu()
+    """
+        torch.ones([1, sig.shape[0]], dtype=bool) tạo ra một tensor toàn số một với kích thước là [1, sig.shape[0]].
+        torch.zeros([1, sig.shape[0]], dtype=bool) tạo ra một tensor toàn số không với kích thước tương tự.
+        torch.cat([...]).t() nối hai tensor vừa tạo theo chiều 0 và sau đó chuyển vị (transpose) để có kích thước [sig.shape[0], 2].
+        .reshape(-1, 1) làm phẳng tensor thành một ma trận có kích thước [sig.shape[0]*2, 1].
+    """
     mask = torch.cat(
         [torch.ones([1, sig.shape[0]], dtype=bool), torch.zeros([1, sig.shape[0]], dtype=bool)]).t().reshape(
         -1, 1)
-
+    """
+        Lựa chọn các giá trị trong dataset.y dựa theo mask có giá trị 1 và so sánh với sig sử dụng hàm roc_auc_score
+    """
     result = roc_auc_score(dataset.y[mask].squeeze().cpu().numpy(), sig)
+    """
+        roc_curve được sử dụng để tính toán đường cong ROC (Receiver Operating Characteristic) và các chỉ số liên quan như FPR (False Positive Rate), 
+        TPR (True Positive Rate) và các ngưỡng (thresholds) tương ứng. 
+        Đường cong ROC biểu diễn mối liên hệ giữa TPR (True Positive Rate) và FPR (False Positive Rate) của một mô hình phân loại ở nhiều ngưỡng khác nhau
+        Các chỉ số như Area Under the Curve (AUC) của đường cong ROC cung cấp thông tin về hiệu suất phân loại của mô hình. AUC là một thước đo tổng 
+            thể của khả năng phân loại của mô hình, với giá trị càng gần 1 càng cho thấy mô hình càng tốt.
+    """
     fpr, tpr, thresholds = roc_curve(dataset.y[mask].squeeze().cpu().numpy(), sig)
     print("result", result)
     return result, fpr, tpr
 
 
 def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True):
-    print("calling train_routine")
-
     def vprint(*args, **kwargs):
         if verbose:
             print(*args, **kwargs)
@@ -209,31 +226,31 @@ def train_routine(dsname, mod, opt, trn_ds, val_ds, tst_ds, epoch, verbose=True)
         if early_stop > early_stop_thd:
             break
     vprint(f"end test {tst_score:.3f}")
-    # if verbose:
-    #     # with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
-    #     with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
-    #         f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
-    #             round(t1 - t0, 4)) + '   ' + '\n')
-    #
-    #     values_auc = []
-    #     annotations_auc = []
-    #     with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'r') as f1:
-    #         auc = f1.readlines()
-    #     if auc:
-    #         for line in auc:
-    #             line = line.strip()
-    #             if line:
-    #                 AUC, times = line.split()
-    #                 # x_txt.append(len(x_txt) + 1)
-    #                 values_auc.append(float(AUC.split(":")[1]))
-    #                 annotations_auc.append(float(times.split(":")[1]))
-    #         if tst_score >= max(values_auc):
-    #             fpr_file = "fpr.json"
-    #             tpr_file = "tpr.json"
-    #
-    #             with open(fpr_file, "w") as f:
-    #                 json.dump(fpr.tolist(), f)
-    #
-    #             with open(tpr_file, "w") as f:
-    #                 json.dump(tpr.tolist(), f)
+    if verbose:
+        # with open(f'TwoWL/records/{dsname}_auc_record.txt', 'a') as f:
+        with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'a') as f:
+            f.write('AUC:' + str(round(tst_score, 4)) + '   ' + 'Time:' + str(
+                round(t1 - t0, 4)) + '   ' + '\n')
+
+        values_auc = []
+        annotations_auc = []
+        with open(PATH_SAVE_TEST_AUC + f'{dsname}_auc_record_twowl.txt', 'r') as f1:
+            auc = f1.readlines()
+        if auc:
+            for line in auc:
+                line = line.strip()
+                if line:
+                    AUC, times = line.split()
+                    # x_txt.append(len(x_txt) + 1)
+                    values_auc.append(float(AUC.split(":")[1]))
+                    annotations_auc.append(float(times.split(":")[1]))
+            if tst_score >= max(values_auc):
+                fpr_file = "fpr.json"
+                tpr_file = "tpr.json"
+
+                with open(fpr_file, "w") as f:
+                    json.dump(fpr.tolist(), f)
+
+                with open(tpr_file, "w") as f:
+                    json.dump(tpr.tolist(), f)
     return best_val
