@@ -24,6 +24,14 @@ def link_prediction_menu(model_option, train):
             st.write("### Logistic model runtime: ", time)
     elif model_option == "SEAL":
         if train:
+            # CÁC GIÁ TRỊ TRUYỀN VÀO LẦN LƯỢT KHI TRAI MÔ HÌNH LÀ: 
+            """
+                0: đồ thị vô hướng.
+                0.1: kích thước tập kiểm tra
+                100: kích thước vector embedding
+                auto: tham số hop để chia tiểu đồ thị.
+                0.00001: tỷ lệ học
+            """
             execute(0, 0.1, 100, "auto", 0.00001)
 
         else:

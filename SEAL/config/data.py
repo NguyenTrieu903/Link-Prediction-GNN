@@ -14,19 +14,31 @@ def load_data(network_type):
     :return:
     """
     print("load data...")
-    positive_df = pd.read_csv(constant.PATH_EDGES, delimiter=',', dtype=int)
+    # ĐỌC DỮ LIỆU TỪ FILE
+    positive_df = pd.read_csv(constant.PATH_EDGES, delimiter=',', dtype=int) 
+    # chuyển dữ liệu được đọc được thành mảng Numpy
     positive = positive_df.to_numpy()
 
-    # sample negative
-    G = nx.Graph() if network_type == 0 else nx.DiGraph()
-    G.add_edges_from(positive)
-    # print(nx.info(G))
-    negative_all = list(nx.non_edges(G))
-    np.random.shuffle(negative_all)
-    negative = np.asarray(negative_all[:len(positive)])
-    np.random.shuffle(positive)
+    # VẼ ĐỒ THỊ G VỚI CÁC CẠNH HIỆN CÓ TRONG FILE
+    G = nx.Graph() if network_type == 0 else nx.DiGraph() # tạo biến đồ thị G
+    G.add_edges_from(positive) # add các cạnh hiện có vào biến đồ thị G
+
+    # TẠO DANH SÁCH CÁC CẠNH KHÔNG TỒN TẠI TRONG ĐỒ THỊ G
+    negative_all = list(nx.non_edges(G)) #tạo danh sách chứa tất cả các cạnh không tồn tại trong G
+    np.random.shuffle(negative_all) #xáo trộn ngẫu nhiên thứ tự các phần tử trong danh sách các cạnh không tồn tại trong G
+    negative = np.asarray(negative_all[:len(positive)]) #Hàm này chọn một số lượng cạnh không tồn tại bằng với số lượng cạnh tồn tại trong đồ thị G.
+    np.random.shuffle(positive) #xáo trộn ngẫu nhiên thứ tự các phần tử trong danh sách các cạnh tồn tại trong G
+    """ việc xáo trộn các cạnh trong 2 danh sách giúp đảm bảo tính ngẫu nhiên trong quá trình huấn luyện."""
+
     print("positve examples: %d, negative examples: %d." % (len(positive), len(negative)))
-    
+
+    # ĐIỀU CHỈNH GIÁ TRỊ CÁC CẠNH TRONG DANH SÁCH POSITIVE VÀ NEGATIVE SAO CHO CÁC GIÁ TRỊ NÀY BẮT ĐẦU TỪ 0 THAY VÌ 1
+    """ 
+        Vì các thuật toán xử lý đồ thị thường bắt đầu đánh số các node (đỉnh) từ 0. 
+        Nếu dữ liệu đầu vào sử dụng đánh số từ 1, bạn cần điều chỉnh lại để đảm bảo tính nhất quán 
+        trong quá trình xử lý và huấn luyện mô hình. Nếu không có bước này và dữ liệu đầu vào bắt đầu từ 1, 
+        có thể dẫn đến lỗi hoặc kết quả không chính xác trong quá trình xử lý và huấn luyện mô hình. 
+    """
     if np.min(positive) == 1:
         positive -= 1
         negative -= 1
@@ -44,36 +56,75 @@ def learning_embedding(positive, negative, network_size, test_ratio, dimension, 
     :return:
     """
     print("learning embedding...")
-    # used training data only for embedding process
+
+    # TẠO DỮ LIỆU ĐÀO TẠO CHO QUÁ TRÌNH NHÚNG
     test_size = int(test_ratio * positive.shape[0])
     train_posi, train_nega = positive[:-test_size], negative[:-test_size]
-    # negative injection
+
+    # TẠO ĐỒ THỊ A CÓ HƯỚNG HOẶC KHÔNG DỰA VÀO BIẾN "network_type"
     A = nx.Graph() if network_type == 0 else nx.DiGraph()
 
-    # So if train_posi is an array containing the edges of the graph,
-    # the line of code will add these edges to graph A and assign a weight of 1 to each edge.
+    # THÊM CÁC CẠNH VÀO ĐỒ THỊ A
+    """
+        - Đầu tiên, ta thêm các cạnh positive vào trong đồ thị A và gán với trọng số là 1;
+        - Tiếp theo, nếu biến negative_injection có giá trị true thì ta cũng thêm các cạnh trong negative vào đồ thị A
+        - Ở đây, vì để tăng khả năng học được cấu trúc, mối quan hệ trong mạng và tăng khả năng dự đoán, khả năng tổng 
+        quát hóa trên dữ liệu thì ta tiến hành cho phép thêm các cạnh trong nagative vào đồ thị A và cũng gán với trọng số là 1.
+    """
     A.add_weighted_edges_from(
         np.concatenate([train_posi, np.ones(shape=[train_posi.shape[0], 1], dtype=np.int8)], axis=1))
     if negative_injection:
         A.add_weighted_edges_from(
             np.concatenate([train_nega, np.ones(shape=[train_nega.shape[0], 1], dtype=np.int8)], axis=1))
-    line_graph = nx.line_graph(A)
-    # node2vec
+    line_graph = nx.line_graph(A) # đoạn này không có dùng
+    
+    # QUÁ TRÌNH EMBEĐING DATA
+    """
+        Ta khởi tạo một đồ thị “G” vô hướng từ đồ thị “A” sử dụng thuật toán Node2Vec, 
+        với việc không có sự ưu tiên nào giữa các đỉnh cùng loại (gần nhau) hoặc khác loại (xa nhau) 
+        thông qua tham số p = 1 (pronounced “p-factor”) và q = 1 (pronounced “q-factor”).
+    """
     G = node2vec.Graph(A, is_directed=False if network_type == 0 else True, p=1, q=1)
+
+    """tiền xử lý các xác suất chuyển đổi nhằm hướng dẫn các random walks (các bước di chuyển ngẫu nhiên trên đồ thị)."""
     G.preprocess_transition_probs()
+
+    """
+        Hàm này tạo ra các random walk trong đồ thị G. num_walks là số lượng random walk được tạo ra cho mỗi đỉnh trong đồ thị, 
+        và walk_length là độ dài của mỗi random walk. Sau đó,ta chuyển đổi các đỉnh trong mỗi random walk từ dạng số nguyên sang dạng chuỗi.
+    """
     walks = G.simulate_walks(num_walks=10, walk_length=80)
     walks = [list(map(str, walk)) for walk in walks]
+
+    """
+        Tạo ra một mô hình Word2Vec từ danh sách các random walk vừa tạo bên trên. Trong đó:
+        - walks: danh sách các random walk vừa tạo bên trên.
+        - size: kích thước của vecto nhúng cho mỗi đỉnh trong đồ thị
+        - window: xác định số lượng node xung quanh một node được xem xét trong quá trình huấn luyện.
+        - min_count: quy định số lần xuất hiện tối thiểu của một node trong dữ liệu để được xem xét trong quá trình huấn luyện. 
+        Một node có tần suất xuất hiện thấp hơn min_count sẽ bị bỏ qua và không được sử dụng để cập nhật các vector nhúng.
+        - sg: Phương pháp huấn luyện: sg=1 cho Skip-gram
+        - workers: Số lượng luồng được sử dụng trong quá trình huấn luyện.
+        - iter: Số lần lặp lại quá trình huấn luyện trên dữ liệu.
+    """
     model = Word2Vec(walks, size=dimension, window=10, min_count=0, sg=1, workers=8, iter=1)
+
+    """
+        Hàm này truy cập vào thuộc tính wv của mô hình Word2Vec để lấy vector nhúng (embedding) của các đỉnh trong đồ thị. 
+        wv là một đối tượng chứa các phương thức và thuộc tính liên quan đến vector nhúng.
+    """
     wv = model.wv
+
+    # CHUẨN BỊ MA TRẬN NHÚNG
     embedding_feature, empty_indices, avg_feature = np.zeros([network_size, dimension]), [], 0
     for i in range(network_size):
         if str(i) in wv:
-            embedding_feature[i] = wv.word_vec(str(i))
-            # print("embedding_feature[{}]: {}".format(i, embedding_feature[i]))
-            avg_feature += wv.word_vec(str(i))
+            embedding_feature[i] = wv.word_vec(str(i)) # Nếu node có nhúng (tồn tại trong wv), thêm nhúng vào ma trận embedding_feature.
+            avg_feature += wv.word_vec(str(i)) # Nếu node có nhúng (tồn tại trong wv), tính tổng các vector nhúng của các đối tượng có sẵn.
         else:
-            empty_indices.append(i)
-    embedding_feature[empty_indices] = avg_feature / (network_size - len(empty_indices))
+            empty_indices.append(i) # Nếu node không có nhúng (không tồn tại trong wv), lưu trữ chỉ số node này vào empty_indices.
+    # Tính giá trị trung bình của tất cả các nhúng hiện có và gán giá trị này cho các node không có nhúng (empty_indices).
+    embedding_feature[empty_indices] = avg_feature / (network_size - len(empty_indices)) 
     print("embedding feature shape: ", embedding_feature.shape)
     return embedding_feature
 

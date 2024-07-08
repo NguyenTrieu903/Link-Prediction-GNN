@@ -23,15 +23,18 @@ LEARNING_RATE_DECAY = 0.99
 
 
 def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_test, learning_rate, debug):
-    D_inverse_pl = tf.placeholder(dtype=tf.float32, shape=[None, None], name="D_inverse_pl")
-    A_tilde_pl = tf.placeholder(dtype=tf.float32, shape=[None, None], name="A_tilde_pl")
-    X_pl = tf.placeholder(dtype=tf.float32, shape=[None, initial_channels], name="X_pl")
-    Y_pl = tf.placeholder(dtype=tf.int32, shape=[1], name="Y-placeholder")
-    node_size_pl = tf.placeholder(dtype=tf.int32, shape=[], name="node-size-placeholder")
-    is_train = tf.placeholder(dtype=tf.uint8, shape=[], name="is-train-or-test")
+    # khai báo các placeholder để chứa dữ liệu đầu vào của mô hình
+    D_inverse_pl = tf.placeholder(dtype=tf.float32, shape=[None, None], name="D_inverse_pl") #ma trận nghịch đảo D_1
+    A_tilde_pl = tf.placeholder(dtype=tf.float32, shape=[None, None], name="A_tilde_pl") #ma trận kề chuẩn hóa 
+    X_pl = tf.placeholder(dtype=tf.float32, shape=[None, initial_channels], name="X_pl") #ma trận đặc trưng cho các nút
+    Y_pl = tf.placeholder(dtype=tf.int32, shape=[1], name="Y-placeholder") #nhãn
+    node_size_pl = tf.placeholder(dtype=tf.int32, shape=[], name="node-size-placeholder") #số lượng nút 
+    is_train = tf.placeholder(dtype=tf.uint8, shape=[], name="is-train-or-test") #biến chỉ dẫn chế độ huấn luyện/dự đoán
 
     # trainable parameters of graph convolution layer
-    # tao cac bien co ten la graph_weight_1 voi cac gia tri ngau nhien cu the.Duoc su dung trong qua trinh khoi tao cac trong so cua mang no-ron 
+    # tao cac bien trọng số co ten la graph_weight_1 voi cac gia tri ngau nhien cu the.
+    # Duoc su dung trong qua trinh khoi tao cac trong so cua mang no-ron 
+    # được khởi tạo ngẫu nhiên với phân phối chuẩn bằng phương pháp Truncated Normal với độ lệch chuẩn 0.1.
     graph_weight_1 = tf.Variable(tf.truncated_normal(shape=[initial_channels, GRAPH_CONV_LAYER_CHANNEL], 
                                                      stddev=0.1, dtype=tf.float32), name="graph_weight_1")
     graph_weight_2 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, GRAPH_CONV_LAYER_CHANNEL], 
@@ -40,6 +43,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
                                                      stddev=0.1, dtype=tf.float32), name="graph_weight_3")
     graph_weight_4 = tf.Variable(tf.truncated_normal(shape=[GRAPH_CONV_LAYER_CHANNEL, 1], 
                                                      stddev=0.1, dtype=tf.float32), name="graph_weight_4")
+    
     
     # GRAPH CONVOLUTION LAYER
     # thuc hien mot loat cac phep tinh ma tran de (nhu la 1 lop xu ly) trong mang no-ron.
@@ -60,6 +64,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     Z_4 = tf.nn.tanh(tf.matmul(D_inverse_pl, gl_4_AxXxW))
 
     # de noi cac tensor theo 1 truc cu the. axis = 1 => duoc noi theo chieu ngang
+    # thực hiện nối các kết quả đó lại với nhau theo chiều ngang thành một tensor duy nhất
     graph_conv_output = tf.concat([Z_1, Z_2, Z_3], axis=1)  # shape=(node_size/None, 32+32+32)
 
     # Ham duoc su dung de tinh toan cac thong ke mo ta cho mot bien Tensorflow nhat dinh nhu: mean, variance, max, min. 
@@ -73,7 +78,8 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     if debug:
         var_mean, var_variance, var_max, var_min = variable_summary(graph_weight_1)
 
-    # # THRESHOLDING POOLING LAYER: Su dung de tinh toan nguong dua tren phan tram (percentile) cua kich thuoc nodes trong mot tap hop cac do thi.
+    # # THRESHOLDING POOLING LAYER: Su dung de tinh toan nguong dua tren phan tram (percentile) 
+    # cua kich thuoc nodes trong mot tap hop cac do thi.
     # nodes_size_list = list(nodes_size_list_train) + list(nodes_size_list_test)
     # threshold_k = int(np.percentile(nodes_size_list, top_k))
     # print("%s%% graphs have nodes less then %s." % (top_k, threshold_k))
@@ -90,12 +96,21 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     #                                                                             GRAPH_CONV_LAYER_CHANNEL*3])]),
     #                                   lambda: tf.slice(graph_conv_output_stored, begin=[0, 0], size=[threshold_k, -1]))
 
-    # THRESHOLDING POOLING LAYER: 
-    nodes_size_list = list(nodes_size_list_train) + list(nodes_size_list_test)
-    threshold_k = int(np.percentile(nodes_size_list, top_k))
 
+    # THRESHOLDING POOLING LAYER: 
+    """
+        Lớp này tính toán một ngưỡng dựa trên phần trăm của kích thước nút trong một tập hợp các đồ thị. 
+        Nó giúp giảm kích thước của đầu ra của mô hình, giảm độ phức tạp tính toán.
+    """
+    nodes_size_list = list(nodes_size_list_train) + list(nodes_size_list_test) # tính toán danh sách kích thước các đồ thị trong tập train và test
+    threshold_k = int(np.percentile(nodes_size_list, top_k)) #áp dụng phép tính percentile để tính giá trị threshold_k dựa theo top_k% của danh sách trên.
+
+    # ta lấy chỉ số của k giá trị lớn nhất trong những giá trị của cột đầu tiên của trong Z_4.
+    # sử dụng các chỉ số vừa tính bên trên để lấy các phần tử tương ứng trong graph_conv_output và gán nó vào biến graph_conv_output_stored
     graph_conv_output_stored = tf.gather(graph_conv_output, tf.nn.top_k(Z_4[:, 0], node_size_pl).indices)
 
+    #nếu kích thước của nút nhỏ hơn ngưỡng k ta đã tính trước đó, thì ta tiến hành nối graph_conv_output_stored với mảng zeros để bổ sung các 
+    # phần tử còn thiếu. Ngược lại, ta tiến hành cắt graph_conv_output_stored thành độ dài threshold_k và gán vào biến graph_conv_output_top_k.
     graph_conv_output_top_k = tf.cond(tf.less(node_size_pl, threshold_k),
                                       lambda: tf.concat(axis=0,
                                                         values=[graph_conv_output_stored,
@@ -105,7 +120,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
                                       lambda: tf.slice(graph_conv_output_stored, begin=[0, 0], size=[threshold_k, -1]))
 
     # FLATTEN LAYER
-    # Su dung de bien doi tensor graph_conv_output_top_k thanh mot tensor graph_conv_output_flatten co hinh dang moi
+    # Su dung de bien doi tensor graph_conv_output_top_k thanh mot tensor graph_conv_output_flatten co hinh dang 1D phù hợp cho việc sử dụng các lớp neural network tiếp theo
     graph_conv_output_flatten = tf.reshape(graph_conv_output_top_k, shape=[1, GRAPH_CONV_LAYER_CHANNEL*3*threshold_k, 1])
     assert graph_conv_output_flatten.shape == [1, GRAPH_CONV_LAYER_CHANNEL*3*threshold_k, 1]
 
@@ -125,6 +140,8 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
     conv_1d_b = tf.nn.conv1d(conv_1d_a, conv1d_kernel_2, stride=1, padding="VALID")
     assert conv_1d_b.shape == [1, threshold_k - CONV1D_2_FILTER_WIDTH + 1, CONV1D_2_OUTPUT]
     # Su dung de lam phang (flatten) dau ra cua mot lop convolutional 1D thanh mot vecto 
+    #Lớp này được sử dụng để biến đổi tensor đầu ra từ lớp convolutional thành một vector dài, 
+    # để có thể đưa vào các lớp fully connected sau đó.
     conv_output_flatten = tf.layers.flatten(conv_1d_b)
 
     # Sau khi thuc hien cac phep tinh tren ma tran dau vao -> trich xuat dac trung thong qua cac convolution layer, sau do dua vao cac lop neural network de thuc hien du doan
@@ -157,6 +174,7 @@ def build_model(top_k, initial_channels, nodes_size_list_train, nodes_size_list_
 
 
 def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_list_train, epoch):
+    # Gán các biến từ mô hình vào các biến cục bộ
     D_inverse_pl = model.D_inverse_pl
     A_tilde_pl = model.A_tilde_pl
     X_pl = model.X_pl
@@ -181,7 +199,7 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
             print("start training gnn.")
             sess.run(tf.global_variables_initializer())
             batch_index = 0
-            for _ in tqdm(range(train_data_size)):
+            for _ in tqdm(range(train_data_size)): #lặp qua từng mẫu dữ liệu trong tập huấn luyện:
                 batch_index = batch_index + 1 if batch_index < train_data_size - 1 else 0
                 feed_dict = {D_inverse_pl: D_inverse_train[batch_index],
                                 A_tilde_pl: A_tilde_train[batch_index],
@@ -190,6 +208,7 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
                                 node_size_pl: nodes_size_list_train[batch_index],
                                 is_train: 1
                                 }
+                # Biến _ và _ là các biến không được sử dụng và dùng để bỏ qua kết quả của các phép tính train_op và global_step.
                 loss_value, _, _ = sess.run([loss, train_op, global_step], feed_dict=feed_dict)
 
             train_acc = 0
@@ -197,6 +216,8 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
                     feed_dict = {D_inverse_pl: D_inverse_train[i], A_tilde_pl: A_tilde_train[i],
                                 X_pl: X_train[i], Y_pl: Y_train[i], node_size_pl: nodes_size_list_train[i], is_train: 0}
                     pre_y_value = sess.run(pre_y, feed_dict=feed_dict)
+                    #•	Sử dụng hàm np.argmax() để lấy chỉ số của phần tử có giá trị lớn nhất trong pre_y_value, 
+                    # và so sánh với nhãn thực tế Y_train[i]. Nếu chỉ số dự đoán trùng khớp với nhãn thực tế, tăng giá trị của train_acc lên 1.
                     if np.argmax(pre_y_value, 1) == Y_train[i]:
                         train_acc += 1
             train_acc = train_acc / train_data_size    
@@ -220,13 +241,13 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
     # X_test_one, Y_test_one, A_tilde_test_one, D_inverse_test_one, nodes_size_list_test_one = X_test[0], Y_test[0], A_tilde_test[0], D_inverse_test[0], nodes_size_list_test[0]
 
     with tf.Session() as sess:
-        # load model
+        # chạy lại model đã lưu ở quá trình huấn luyện
         sess.run(tf.global_variables_initializer())
         saver = tf.train.import_meta_graph(constant.MODEL_READ_PATH)
         saver.restore(sess,tf.train.latest_checkpoint(constant.CHECKPOINT_MODEL))
         graph = tf.get_default_graph()
 
-        # get paramaters
+        # lấy các tham số đã lưu ở quá trình huấn luyện
         X_pl = graph.get_tensor_by_name("X_pl:0")
         A_tilde_pl = graph.get_tensor_by_name("A_tilde_pl:0")
         D_inverse_pl = graph.get_tensor_by_name("D_inverse_pl:0")

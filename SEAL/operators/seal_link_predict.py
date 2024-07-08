@@ -14,6 +14,8 @@ import optuna
 
 
 def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, epoch=10):
+
+    #TẠO THANH PROGRESS CHO CHƯƠNG TRÌNH TRONG GIAO DIỆN
     global seconds_passed
     seconds_passed = 0 
     total_steps = 8
@@ -25,7 +27,7 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     time_display = st.sidebar.empty()
     status_text.text("0% Complete")
 
-    # Load dữ liệu tu file
+    # TẢI DỮ LIỆU TỪ FILE VÀO CHƯƠNG TRÌNH
     start_time = time.time()
     positive, negative, nodes_size = data.load_data(is_directed)
     current_step += step_size
@@ -33,14 +35,14 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100) 
     update_time(time_display, start_time, time.time())
 
-    # Embedding data
+    # NHÚNG DỮ LIỆU TẠO THÀNH CÁC EMBEDDING
     embedding_feature = data.learning_embedding(positive, negative, nodes_size, test_ratio, dimension, is_directed)
     current_step += step_size
     status_text.text("{:.0f}% Complete".format(current_step))
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_time, time.time())
 
-    # Tạo tiểu đồ thị 
+    # CHIA DỮ LIỆU THÀNH CÁC TIỂU ĐỒ THỊ
     start_time = time.time()
     graphs_adj, labels, vertex_tags, node_size_list, sub_graphs_nodes, tags_size = \
         subgraph.link2subgraph(positive, negative, nodes_size, test_ratio, hop, is_directed)
@@ -49,7 +51,7 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_time, time.time())
 
-    # Tạo dữ liệu đâu vào cho mô hình
+    # TẠO DỮ LIỆU ĐẦU VÀO CHO MÔ HÌNH
     start_time = time.time()
     D_inverse, A_tilde, Y, X, nodes_size_list, initial_feature_dimension = data.create_input_for_gnn_fly(
         graphs_adj, labels, vertex_tags, node_size_list, sub_graphs_nodes, embedding_feature, None, tags_size)
@@ -58,7 +60,7 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_time, time.time())
 
-    # Chia dữ liệu thành tập train và tập test
+    # CHIA DỮ LIỆU THÀNH TẬP TRAIN VÀ TẬP TEST
     start_time = time.time()
     D_inverse_train, D_inverse_test, A_tilde_train, A_tilde_test, X_train, X_test, Y_train, Y_test, \
         nodes_size_list_train, nodes_size_list_test = utils.split_train_test(D_inverse, A_tilde, X, Y, nodes_size_list)
@@ -67,7 +69,7 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_time, time.time())
 
-    # Xây dựng mô hình
+    # XÂY DỰNG MÔ HÌNH
     start_time = time.time()
     model = gnn.build_model(top_k, initial_feature_dimension, nodes_size_list_train, nodes_size_list_test,
                             learning_rate, debug=False)
@@ -76,7 +78,7 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_time, time.time())
 
-    # Huấn luyện mô hình
+    # HUẤN LUYỆN MÔ HÌNH
     start_t = time.time()
     gnn.train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_list_train, epoch)
     end_t = time.time()
@@ -85,10 +87,12 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     progress_bar.progress(current_step / 100)  
     update_time(time_display, start_t, time.time())
 
-    # Dự đoán kết quả
+    # DỰ ĐOÁN KẾT QUẢ
     start_time = time.time()
     test_acc, prediction, pos_scores = gnn.predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test)
     # Tinh AUC
+    # y_true là nhãn thực tế của các mẫu dữ liệu trong tập kiểm tra 
+    #  pos_scores là kết quá dự đoán của mô hình.
     auc = metrics.roc_auc_score(y_true=np.squeeze(Y_test), y_score=np.squeeze(pos_scores))
     plot_auc(ytest=np.squeeze(Y_test), predictions=np.squeeze(pos_scores), roc = auc, name = "roc_curve_seal.png")
     current_step += step_size
@@ -98,11 +102,13 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
     
     st.write("Time consumption: ", end_t - start_t)
 
-    #Ghi kết quả vào file 
+    # GHI KẾT QUẢ VÀO FILE 
     with open(PATH_SAVE_TEST_AUC + 'fb-pages-food_auc_record_seal.txt', 'w') as f:
             f.write('AUC:' + str(round(auc, 4)) + '   ' + 'Time:' + 
                     str(round(end_t - start_t, 4)) + '\n')
 
+
+# ĐỌC KẾT QUẢ TỪ FILE
 def read_the_results_seal():
     time_value = None
     auc_value = None
