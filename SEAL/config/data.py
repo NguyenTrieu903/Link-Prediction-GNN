@@ -15,7 +15,7 @@ def load_data(network_type):
     """
     print("load data...")
     # ĐỌC DỮ LIỆU TỪ FILE
-    positive_df = pd.read_csv(constant.PATH_EDGES, delimiter=',', dtype=int) 
+    positive_df = pd.read_csv('/home/nhattrieu-machine/Documents/2WL_link_pred-main/raw_data/fb-pages-food/fb-pages-food.edges', delimiter=',', dtype=int)
     # chuyển dữ liệu được đọc được thành mảng Numpy
     positive = positive_df.to_numpy()
 
