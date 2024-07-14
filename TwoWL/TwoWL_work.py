@@ -130,11 +130,13 @@ def test(kwargs):
     # load model
     state_dict = torch.load('model.pkl')
     model_state_dict = mod.state_dict()
+    print(model_state_dict)
     filtered_state_dict = {k: v for k, v in state_dict.items() if
                            k in model_state_dict and v.size() == model_state_dict[k].size()}
     model_state_dict.update(filtered_state_dict)
     mod.load_state_dict(model_state_dict)
-    return train.test(mod, tst_ds)
+    # return train.test(mod, tst_ds)
+    return None
 
 
 def call_back_test():
@@ -172,5 +174,6 @@ if __name__ == "__main__":
         args.device = "cpu"
     else:
         args.device = "cuda:" + str(args.device)
-    work(args)
+    # work(args)
     # call_back_test()
+    load_model()

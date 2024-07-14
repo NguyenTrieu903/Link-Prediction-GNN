@@ -5,5 +5,7 @@ MODEL_SAVE_PATH = "./SEAL/model/model"
 MODEL_READ_PATH = "SEAL/model/model-1000.meta"
 CHECKPOINT_MODEL = "SEAL/model"
 PATH_CSV_EDGES = "/home/nhattrieu-machine/Documents/2WL_link_pred-main/raw_data/fb-pages-food/fb-pages-food.csv"
-PATH_SAVE_TEST_AUC = "records_auc/"
+# PATH_SAVE_TEST_AUC = "records_auc/"
+PATH_SAVE_TEST_AUC = "/home/nhattrieu-machine/Documents/2WL_link_pred-main/records_auc/"
 PATH_PICTURE = "./assets/img/"
+

@@ -184,7 +184,7 @@ def test(mod, dataset, test=False):
             thể của khả năng phân loại của mô hình, với giá trị càng gần 1 càng cho thấy mô hình càng tốt.
     """
     fpr, tpr, thresholds = roc_curve(dataset.y[mask].squeeze().cpu().numpy(), sig)
-    print("result", result)
+    # print("result", result)
     return result, fpr, tpr
 
 
