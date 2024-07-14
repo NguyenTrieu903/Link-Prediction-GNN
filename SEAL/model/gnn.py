@@ -199,17 +199,17 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
             print("start training gnn.")
             sess.run(tf.global_variables_initializer())
             batch_index = 0
-            # for _ in tqdm(range(train_data_size)): #lặp qua từng mẫu dữ liệu trong tập huấn luyện:
-            #     batch_index = batch_index + 1 if batch_index < train_data_size - 1 else 0
-            #     feed_dict = {D_inverse_pl: D_inverse_train[batch_index],
-            #                     A_tilde_pl: A_tilde_train[batch_index],
-            #                     X_pl: X_train[batch_index],
-            #                     Y_pl: Y_train[batch_index],
-            #                     node_size_pl: nodes_size_list_train[batch_index],
-            #                     is_train: 1
-            #                     }
-            #     # Biến _ và _ là các biến không được sử dụng và dùng để bỏ qua kết quả của các phép tính train_op và global_step.
-            #     loss_value, _, _ = sess.run([loss, train_op, global_step], feed_dict=feed_dict)
+            for _ in tqdm(range(train_data_size)): #lặp qua từng mẫu dữ liệu trong tập huấn luyện:
+                batch_index = batch_index + 1 if batch_index < train_data_size - 1 else 0
+                feed_dict = {D_inverse_pl: D_inverse_train[batch_index],
+                                A_tilde_pl: A_tilde_train[batch_index],
+                                X_pl: X_train[batch_index],
+                                Y_pl: Y_train[batch_index],
+                                node_size_pl: nodes_size_list_train[batch_index],
+                                is_train: 1
+                                }
+                # Biến _ và _ là các biến không được sử dụng và dùng để bỏ qua kết quả của các phép tính train_op và global_step.
+                loss_value, _, _ = sess.run([loss, train_op, global_step], feed_dict=feed_dict)
 
             train_acc = 0
             for i in tqdm(range(train_data_size)):
@@ -221,14 +221,14 @@ def train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_li
                     if np.argmax(pre_y_value, 1) == Y_train[i]:
                         train_acc += 1
             train_acc = train_acc / train_data_size    
-            print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, 'loss_value'))
+            print("After %5s epoch, training acc %f, the loss is %f." % (epoch, train_acc, loss_value))
             status_text.text("%i%% Complete the training process" % ((epoch + 1) * 10))  # Hiển thị tiến độ
             new_rows = np.full((1, 1), train_acc)
             chart.add_rows(new_rows)
             progress_bar.progress((epoch + 1) * 10)  # Hiển thị tiến độ trên thanh tiến trình
             time.sleep(0.01)  # Đợi 0.01 giây để mô phỏng quá trình huấn luyện
         progress_bar.empty()
-        saver.save(sess, constant.MODEL_SAVE_PATH ,global_step=1000)
+        saver.save(sess, "/home/nhattrieu-machine/Documents/GNN-LinkPrediction/SEAL/model/model" ,global_step=1000)
 
 
 def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test):
