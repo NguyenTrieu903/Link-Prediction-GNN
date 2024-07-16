@@ -243,8 +243,8 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
     with tf.Session() as sess:
         # chạy lại model đã lưu ở quá trình huấn luyện
         sess.run(tf.global_variables_initializer())
-        saver = tf.train.import_meta_graph(constant.MODEL_READ_PATH)
-        saver.restore(sess,tf.train.latest_checkpoint(constant.CHECKPOINT_MODEL))
+        saver = tf.train.import_meta_graph('/home/nhattrieu-machine/Documents/2WL_link_pred-main/SEAL/model/model-1000.meta')
+        saver.restore(sess,tf.train.latest_checkpoint('/home/nhattrieu-machine/Documents/2WL_link_pred-main/SEAL/model'))
         graph = tf.get_default_graph()
 
         # lấy các tham số đã lưu ở quá trình huấn luyện
@@ -279,4 +279,4 @@ def predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list
         test_acc = test_acc / test_data_size
             #saver.save(sess, os.path.join(MODEL_SAVE_PATH, data_name, MODEL_SAVE_NAME), global_step)
         
-    return  test_acc, prediction, scores
+    return  test_acc, prediction, scores, pre_y_value, pos_score_value

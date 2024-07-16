@@ -33,12 +33,14 @@ def execute(is_directed, test_ratio, dimension, hop, learning_rate, top_k=60, ep
 
     # HUẤN LUYỆN MÔ HÌNH
     # start_t = time.time()
-    gnn.train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_list_train, epoch)
+    # gnn.train(model, X_train, D_inverse_train, A_tilde_train, Y_train, nodes_size_list_train, epoch)
     # end_t = time.time()
 
     # DỰ ĐOÁN KẾT QUẢ
     start_time = time.time()
-    # test_acc, prediction, pos_scores = gnn.predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test)
+    test_acc, prediction, pos_scores, pre_y_value, pos_score_value = gnn.predict(model, X_test, Y_test, A_tilde_test, D_inverse_test, nodes_size_list_test)
+    print("Probability for the 420th X_test ", pos_score_value)
+    print("X_test[420] ", X_test[420])
     # Tinh AUC
     # y_true là nhãn thực tế của các mẫu dữ liệu trong tập kiểm tra 
     #  pos_scores là kết quá dự đoán của mô hình.
@@ -66,14 +68,14 @@ def read_the_results_seal():
 
 
 if __name__ == '__main__':
-    # execute(0, 0.1, 100, "auto", 0.00001)
-    with tf.Session() as sess:
-        saver = tf.train.import_meta_graph('/home/nhattrieu-machine/Documents/2WL_link_pred-main/SEAL/model/model-1000.meta')
-        saver.restore(sess, tf.train.latest_checkpoint('/home/nhattrieu-machine/Documents/2WL_link_pred-main/SEAL/model'))
-        graph = tf.get_default_graph()
-        for var in tf.compat.v1.global_variables():
-            print(f"Variable name: {var.name}")
-            print(sess.run(var))
+    execute(0, 0.1, 100, "auto", 0.00001)
+    # with tf.Session() as sess:
+    #     saver = tf.train.import_meta_graph('/home/nhattrieu-machine/Documents/2WL_link_pred-main/SEAL/model/model-1000.meta')
+    #     saver.restore(sess, tf.train.latest_checkpoint('/home/nhattrieu-machine/Documents/2WL_link_pred-main/SEAL/model'))
+    #     graph = tf.get_default_graph()
+    #     for var in tf.compat.v1.global_variables():
+    #         print(f"Variable name: {var.name}")
+    #         print(sess.run(var))
     # tf.compat.v1.disable_eager_execution()
     #
     # # File path to the meta file and checkpoint
